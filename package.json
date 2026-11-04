@@ -1,0 +1,17 @@
+{
+  "name": "signal9-print-studio",
+  "version": "1.0.0",
+  "description": "Organise digital artworks and print them on an Epson ET-8500 with paper-aware colour and quality settings.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "open": "SIGNAL9_OPEN=1 node server.js",
+    "simulate": "SIGNAL9_MOCK=1 node server.js",
+    "test": "node --test"
+  }
+}

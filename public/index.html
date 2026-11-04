@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Signal9 Print Studio</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icon.svg" alt="" width="26" height="26">
+      <span>Signal9 <b>Print Studio</b></span>
+    </div>
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="search" type="search" placeholder="Search titles, tags and notes" autocomplete="off">
+    </label>
+    <button class="printer-chip" id="printerChip" type="button" aria-haspopup="dialog">
+      <span class="dot"></span><span class="name">Looking for printers…</span>
+    </button>
+  </header>
+
+  <div class="simulated-banner" id="simBanner" hidden>
+    Simulated printer: no Mac print system was found, so prints are saved as PDFs in your library folder instead of printing.
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <button class="btn primary wide" id="importBtn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Import artworks
+      </button>
+      <input id="fileInput" type="file" multiple accept="image/*,.tif,.tiff,.heic,.heif,.psd" hidden>
+
+      <nav class="nav" id="nav"></nav>
+
+      <div class="nav-section">
+        <div class="nav-title">Collections <button class="icon-btn" id="newCollection" title="New collection" type="button">+</button></div>
+        <div id="collections"></div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-title">Tags</div>
+        <div class="tag-cloud" id="tagCloud"></div>
+      </div>
+
+      <div class="ink-panel" id="inkPanel" hidden></div>
+    </aside>
+
+    <main class="main" id="main">
+      <div class="toolbar">
+        <h1 id="viewTitle">All artworks</h1>
+        <span class="count" id="viewCount"></span>
+        <div class="spacer"></div>
+        <select id="sort" aria-label="Sort">
+          <option value="new">Newest first</option>
+          <option value="old">Oldest first</option>
+          <option value="title">Title A–Z</option>
+          <option value="rating">Highest rated</option>
+          <option value="printed">Recently printed</option>
+        </select>
+        <input id="zoom" type="range" min="140" max="360" value="220" aria-label="Thumbnail size">
+      </div>
+
+      <div class="selection-bar" id="selectionBar" hidden>
+        <span id="selectionCount"></span>
+        <button class="btn ghost" id="selectAll" type="button">Select all</button>
+        <button class="btn ghost" id="clearSelection" type="button">Clear</button>
+        <div class="spacer"></div>
+        <select id="addToCollection" aria-label="Add selection to collection"></select>
+        <button class="btn primary" id="printSelected" type="button">Print selected</button>
+      </div>
+
+      <div class="grid" id="grid"></div>
+      <div class="empty" id="empty" hidden>
+        <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="30" rx="3"/><circle cx="17" cy="19" r="4"/><path d="m6 34 11-10 9 8 6-5 10 9"/></svg>
+        <h2>Drop your artworks here</h2>
+        <p>JPEG, PNG, WebP, TIFF and HEIC. Or use <b>Import artworks</b>.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Artwork detail -->
+  <aside class="drawer" id="drawer" hidden aria-label="Artwork details"></aside>
+
+  <!-- Print studio -->
+  <section class="studio" id="studio" hidden aria-label="Print studio">
+    <header class="studio-head">
+      <button class="icon-btn" id="studioClose" type="button" title="Back to library">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <h2>Print studio</h2>
+      <div class="filmstrip" id="filmstrip"></div>
+    </header>
+    <div class="studio-body">
+      <div class="stage">
+        <div class="stage-tools">
+          <div class="segmented" id="previewMode" role="radiogroup" aria-label="Preview">
+            <button type="button" data-mode="original">Original</button>
+            <button type="button" data-mode="adjusted" class="on">Print-ready</button>
+            <button type="button" data-mode="paper">Paper simulation</button>
+          </div>
+        </div>
+        <div class="sheet-wrap" id="sheetWrap">
+          <div class="sheet" id="sheet"><canvas id="sheetCanvas"></canvas></div>
+        </div>
+        <div class="stage-info" id="stageInfo"></div>
+      </div>
+      <div class="panel" id="panel"></div>
+    </div>
+  </section>
+
+  <div class="popover" id="printerPopover" hidden></div>
+  <div class="drop-overlay" id="dropOverlay" hidden><div>Drop to import</div></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

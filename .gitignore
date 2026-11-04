@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+*.log
+# Your artwork library lives outside this folder by default (~/Pictures/Signal9 Library).
+# If you point it inside the project, keep it out of git:
+library/
+Signal9 Library/
+
+# Local editor/agent settings
+.claude/
