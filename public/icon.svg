@@ -1,9 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#1d1d21"/>
-  <rect x="14" y="10" width="36" height="22" rx="2" fill="#f4f1ea"/>
-  <path d="M14 28l9-8 7 6 6-4 14 10H14z" fill="#e8a93c"/>
-  <circle cx="40" cy="17" r="3" fill="#e8a93c"/>
-  <rect x="8" y="30" width="48" height="16" rx="4" fill="#3a3a42"/>
-  <rect x="18" y="42" width="28" height="12" rx="1" fill="#f4f1ea"/>
-  <circle cx="49" cy="37" r="2" fill="#5cc489"/>
+  <!-- Signal9 mark: framed sienna 9 (from the Signal9 logo) with a collage fragment and hairline crack -->
+  <rect width="64" height="64" fill="#0a0908"/>
+  <rect x="38" y="5" width="20" height="15" fill="#d6c9ae" opacity=".85"/>
+  <rect x="45" y="15" width="12" height="10" fill="#1d2c40"/>
+  <circle cx="42" cy="9" r="1" fill="#0a0908"/>
+  <circle cx="54" cy="11" r=".8" fill="#c9973f"/>
+  <rect x="3" y="3" width="58" height="58" fill="none" stroke="#e8e2d9" stroke-width="1.6" opacity=".7"/>
+  <g fill="none" stroke="#b5623a" stroke-width="7.5" stroke-linecap="butt">
+    <ellipse cx="30" cy="26" rx="9" ry="10.5"/>
+    <path d="M39 26v14c0 8-4.5 12-12 12h-6"/>
+  </g>
+  <path d="M10 60 L17 47 L14 40 L22 31" fill="none" stroke="#c77bb4" stroke-width=".8" opacity=".7"/>
 </svg>

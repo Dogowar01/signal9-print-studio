@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Signal9 Print Studio</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <img src="icon.svg" alt="" width="26" height="26">
-      <span>Signal9 <b>Print Studio</b></span>
+      <img class="mark" src="icon.svg" alt="" width="30" height="30">
+      <span class="wordmark"><span class="name">Signal<span>9</span> Studio</span><span class="sub">Print Room</span></span>
     </div>
     <label class="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
@@ -50,6 +53,11 @@
 
     <main class="main" id="main">
       <div class="toolbar">
+        <svg class="s9-crackline" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
+          <path pathLength="1" d="M560 0 L585 26 L572 44 L610 63 L598 82 L640 120"/>
+          <path class="faint" pathLength="1" d="M598 82 L660 90 L700 78"/>
+        </svg>
+        <span class="ghost-num" id="ghostNum" aria-hidden="true">9</span>
         <h1 id="viewTitle">All artworks</h1>
         <span class="count" id="viewCount"></span>
         <div class="spacer"></div>
@@ -74,9 +82,19 @@
 
       <div class="grid" id="grid"></div>
       <div class="empty" id="empty" hidden>
-        <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="30" rx="3"/><circle cx="17" cy="19" r="4"/><path d="m6 34 11-10 9 8 6-5 10 9"/></svg>
-        <h2>Drop your artworks here</h2>
-        <p>JPEG, PNG, WebP, TIFF and HEIC. Or use <b>Import artworks</b>.</p>
+        <svg class="collage" viewBox="0 0 230 170" aria-hidden="true">
+          <rect class="frag" x="92" y="6" width="96" height="74" fill="#d6c9ae" opacity=".82"/>
+          <rect class="frag" x="150" y="54" width="58" height="46" fill="#1d2c40"/>
+          <rect class="frag" x="34" y="44" width="78" height="94" fill="#1c1b1a" stroke="rgba(232,226,217,.2)"/>
+          <rect class="frag" x="100" y="98" width="44" height="40" fill="#b4532a" opacity=".85"/>
+          <rect class="frag" x="64" y="132" width="28" height="26" fill="#d6c9ae" opacity=".6"/>
+          <circle cx="120" cy="30" r="2.4" fill="#0a0908"/><circle cx="160" cy="22" r="1.6" fill="#c9973f"/>
+          <circle cx="132" cy="44" r="1.2" fill="#0a0908"/><circle cx="174" cy="40" r="2" fill="#b4532a"/>
+          <circle cx="58" cy="70" r="1.4" fill="#c9973f"/>
+          <path class="crack" pathLength="1" d="M108 6 L124 26 L114 40 L140 58 L130 76 L150 96 L142 120 L160 164"/>
+        </svg>
+        <h2>Your collection begins here</h2>
+        <p>Drop artworks anywhere, or use <b>Import artworks</b>. JPEG, PNG, WebP, TIFF and HEIC.</p>
       </div>
     </main>
   </div>
@@ -90,7 +108,7 @@
       <button class="icon-btn" id="studioClose" type="button" title="Back to library">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
       </button>
-      <h2>Print studio</h2>
+      <div class="titles"><span class="eyebrow">Signal9 Studio</span><h2>The print room</h2></div>
       <div class="filmstrip" id="filmstrip"></div>
     </header>
     <div class="studio-body">
@@ -114,6 +132,7 @@
   <div class="popover" id="printerPopover" hidden></div>
   <div class="drop-overlay" id="dropOverlay" hidden><div>Drop to import</div></div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="s9-grain" aria-hidden="true"></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

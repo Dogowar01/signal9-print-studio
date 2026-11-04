@@ -183,7 +183,7 @@ async function drawPreview() {
 
   const cm = (pt) => (mm(pt) / 10).toFixed(1);
   const inch = (pt) => (pt / 72).toFixed(1);
-  $('#stageInfo').innerHTML = `<b>${esc(item.art.title)}</b> · ${esc(p.pageSize.label)} ·
+  $('#stageInfo').innerHTML = `<span class="art-title">${esc(item.art.title)}</span> &nbsp;·&nbsp; ${esc(p.pageSize.label)} ·
     image ${cm(rect.width)} × ${cm(rect.height)} cm (${inch(rect.width)} × ${inch(rect.height)} in) ·
     <b>${Math.round(p.layout.ppi)} ppi</b>${p.layout.rotate ? ' · rotated to fit' : ''}${S.mode === 'paper' ? ' · simulating ' + esc(p.paper.short) : ''}`;
 }
@@ -225,7 +225,7 @@ function renderPanel() {
     <section>
       <h3>Layout</h3>
       <div class="segmented" id="pFit">
-        ${[['fit', 'Fit whole image'], ['fill', 'Fill page (crop)'], ['custom', 'Custom size']].map(([v, l]) => `<button type="button" data-fit="${v}" class="${S.layout.fit === v ? 'on' : ''}">${l}</button>`).join('')}
+        ${[['fit', 'Fit'], ['fill', 'Fill & crop'], ['custom', 'Custom size']].map(([v, l]) => `<button type="button" data-fit="${v}" class="${S.layout.fit === v ? 'on' : ''}">${l}</button>`).join('')}
       </div>
       ${S.layout.fit === 'custom' ? `<div class="unit-input"><label for="pWidth">Image width</label><input id="pWidth" type="number" min="10" max="400" step="1" value="${S.layout.customWidthMm}"> mm</div>` : ''}
       <div class="grid2">

@@ -17,6 +17,7 @@ const state = {
   status: null,
   app: null,
   processing: new Set(),
+  seen: new Set(), // cards already revealed, so re-renders don't replay the entrance
 };
 
 // ---------- Startup ----------
@@ -152,7 +153,7 @@ function renderNav() {
       ${icons.folder}<span>${esc(c.name)}</span>
       <span class="n">${count((a) => a.collections.includes(c.id))}</span>
       <button class="icon-btn rename" data-rename="${c.id}" title="Rename or delete" type="button">${icons.pencil}</button>
-    </div>`).join('') || '<div class="hint" style="padding:0 8px;color:var(--faint);font-size:12px">Group artworks into series, shows or themes.</div>';
+    </div>`).join('') || '<div class="nav-empty">Group works into series, shows or themes.</div>';
 
   const tagCounts = new Map();
   for (const a of state.artworks) for (const t of a.tags) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
@@ -165,6 +166,17 @@ function renderNav() {
     '<option value="__new">New collection…</option>';
 }
 
+// Catalogue plate numbers, in the order works entered the library.
+let plates = { key: '', map: new Map() };
+function plateOf(a) {
+  const key = state.artworks.map((x) => x.id).join();
+  if (plates.key !== key) {
+    const order = [...state.artworks].sort((x, y) => x.addedAt.localeCompare(y.addedAt));
+    plates = { key, map: new Map(order.map((x, i) => [x.id, `No. ${String(i + 1).padStart(2, '0')}`])) };
+  }
+  return plates.map.get(a.id) || '';
+}
+
 function renderGrid() {
   const list = visibleArtworks();
   $('#viewTitle').textContent = viewTitle();
@@ -172,7 +184,8 @@ function renderGrid() {
   $('#empty').hidden = state.artworks.length > 0;
   $('#grid').classList.toggle('selecting', state.selected.size > 0);
   $('#grid').innerHTML = list.map(cardHtml).join('') ||
-    (state.artworks.length ? '<p style="color:var(--muted);grid-column:1/-1">Nothing matches this view.</p>' : '');
+    (state.artworks.length ? '<p class="nav-empty" style="grid-column:1/-1">Nothing in this view yet.</p>' : '');
+  for (const a of list) if (a.thumb) state.seen.add(a.id);
 }
 
 function cardHtml(a) {
@@ -180,14 +193,14 @@ function cardHtml(a) {
     ? `<img src="/files/thumbs/${a.thumb}" alt="" loading="lazy" draggable="false">`
     : `<div class="placeholder">${a.display ? 'Preparing preview…' : esc(a.note || 'No preview')}</div>`;
   return `
-    <article class="card ${state.selected.has(a.id) ? 'selected' : ''}" data-id="${a.id}" draggable="true">
+    <article class="card ${state.selected.has(a.id) ? 'selected' : ''} ${state.seen.has(a.id) ? '' : 'fresh'}" data-id="${a.id}" draggable="true">
       <div class="thumb">${thumb}</div>
       <div class="check" data-select title="Select">${icons.check}</div>
       <button class="fav ${a.favorite ? 'on' : ''}" data-fav title="Favourite" type="button">${icons.heart}</button>
       <div class="meta">
-        <div class="title" title="${esc(a.title)}">${esc(a.title)}</div>
+        <div class="title-row"><div class="title" title="${esc(a.title)}">${esc(a.title)}</div><span class="plate">${plateOf(a)}</span></div>
         <div class="sub">${stars(a.rating)}${a.width ? `<span>${a.width}×${a.height}</span>` : ''}
-          ${a.printCount ? `<span class="printed" title="Last printed ${timeAgo(a.lastPrintedAt)}">${icons.printer.replace('<svg', '<svg style="width:12px;height:12px;vertical-align:-2px"')} ${a.printCount}</span>` : ''}</div>
+          ${a.printCount ? `<span class="printed" title="Last printed ${timeAgo(a.lastPrintedAt)}">${icons.printer.replace('<svg', '<svg style="width:12px;height:12px"')} ${a.printCount}</span>` : ''}</div>
       </div>
       ${state.processing.has(a.id) ? '<div class="progress"></div>' : ''}
     </article>`;
@@ -233,13 +246,13 @@ function renderPrinterPopover() {
   pop.innerHTML = `
     <h4>Printer</h4>
     <select id="popPrinter">${state.printers.map((p) => `<option value="${esc(p.name)}" ${p.name === state.printer?.name ? 'selected' : ''}>${esc(p.info)}</option>`).join('') || '<option>No printers found</option>'}</select>
-    ${state.printers.length ? '' : '<p class="tip" style="margin:0;color:var(--muted);font-size:13px">Add your ET-8500 in <b>System Settings → Printers &amp; Scanners</b>, then reload this page.</p>'}
-    ${st?.message ? `<div style="font-size:13px;color:var(--muted)">${esc(st.message)}</div>` : ''}
+    ${state.printers.length ? '' : '<p class="msg" style="margin:0">Add your ET-8500 in <b>System Settings → Printers &amp; Scanners</b>, then reload this page.</p>'}
+    ${st?.message ? `<div class="msg">${esc(st.message)}</div>` : ''}
     <h4>Print jobs</h4>
     <div>${jobs.length ? jobs.map((j) => `
       <div class="job"><span class="t" title="${esc(j.title || j.id)}">${esc(j.title || j.id)}</span><span class="s">${esc(j.state)}</span>
       ${j.state === 'pending' ? `<button class="btn ghost danger" data-cancel="${esc(j.id)}" type="button">Cancel</button>` : ''}</div>`).join('')
-      : '<div style="font-size:13px;color:var(--faint)">No recent jobs.</div>'}</div>`;
+      : '<div class="empty-note">No recent jobs.</div>'}</div>`;
   $('#popPrinter', pop).onchange = (e) => setPrinter(e.target.value);
 }
 
@@ -266,12 +279,13 @@ function renderDrawer() {
     <div class="hero">${src ? `<img src="${src}" alt="">` : '<span style="color:var(--faint)">No preview</span>'}
       <button class="icon-btn" data-close title="Close" type="button">${icons.close}</button></div>
     <div class="body">
+      <div class="plate-line">Signal9 Studio · ${plateOf(a)}</div>
       <input class="title-input" id="dTitle" type="text" value="${esc(a.title)}" aria-label="Title">
       ${a.note ? `<div class="note-warn">${esc(a.note)}</div>` : ''}
       <div class="row">
         <div class="rating-input" id="dRating">${[1, 2, 3, 4, 5].map((i) => `<button type="button" data-r="${i}" class="${i <= a.rating ? 'on' : ''}" title="${i} star${i > 1 ? 's' : ''}">${icons.star}</button>`).join('')}</div>
         <div class="spacer"></div>
-        <button class="btn ghost ${a.favorite ? 'on' : ''}" id="dFav" type="button" style="${a.favorite ? 'color:#ff6b8b' : ''}">${icons.heart.replace('<svg', `<svg style="${a.favorite ? 'fill:currentColor' : ''}"`)} ${a.favorite ? 'Favourite' : 'Add to favourites'}</button>
+        <button class="btn ghost fav-toggle ${a.favorite ? 'on' : ''}" id="dFav" type="button">${icons.heart} ${a.favorite ? 'Favourite' : 'Add to favourites'}</button>
       </div>
       <button class="btn primary big" id="dPrint" type="button" ${a.display ? '' : 'disabled'}>${icons.printer} Print this artwork</button>
       ${traits.length ? `<div class="field"><span class="label">Image character</span><div class="badges">${traits.map((t) => `<span class="badge">${esc(t)}</span>`).join('')}</div></div>` : ''}
@@ -279,7 +293,7 @@ function renderDrawer() {
         <div class="tags-input">${a.tags.map((t) => `<span class="chip">#${esc(t)}<button type="button" data-untag="${esc(t)}" title="Remove">×</button></span>`).join('')}
           <input id="dTagInput" type="text" placeholder="Add tag, press Enter"></div></div>
       <div class="field"><span class="label">Collections</span>
-        <div class="check-list">${state.collections.map((c) => `<label><input type="checkbox" data-col="${c.id}" ${a.collections.includes(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('') || '<span style="color:var(--faint);font-size:13px">No collections yet. Create one in the sidebar.</span>'}</div></div>
+        <div class="check-list">${state.collections.map((c) => `<label><input type="checkbox" data-col="${c.id}" ${a.collections.includes(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('') || '<span class="nav-empty" style="padding:0">No collections yet. Create one in the sidebar.</span>'}</div></div>
       <div class="field"><label for="dNotes">Notes</label><textarea id="dNotes" placeholder="Edition, medium, where it’s shown…">${esc(a.notes)}</textarea></div>
       <div class="field"><span class="label">Details</span>
         <dl class="facts">
