@@ -25,7 +25,7 @@ const state = {
 
 async function init() {
   $('#sort').value = state.sort;
-  $('#zoom').value = prefs.get('zoom', 220);
+  $('#zoom').value = prefs.get('rowHeight', 240);
   applyZoom();
 
   try {
@@ -67,7 +67,7 @@ async function refreshPrinterStatus() {
   if (!state.printer) {
     chip.querySelector('.name').textContent = 'No printer found';
     chip.querySelector('.dot').className = 'dot stopped';
-    $('#inkPanel').hidden = true;
+    $('#chipInks').innerHTML = '';
     return;
   }
   try {
@@ -117,49 +117,54 @@ function visibleArtworks() {
   return list.sort(by);
 }
 
-function viewTitle() {
+// Heading for the current view, set like the website: an upright word, then italics.
+function viewHeading() {
   const v = state.view;
-  if (v.type === 'favorites') return 'Favourites';
-  if (v.type === 'printed') return 'Printed';
-  if (v.type === 'unprinted') return 'Not yet printed';
-  if (v.type === 'collection') return state.collections.find((c) => c.id === v.id)?.name || 'Collection';
-  if (v.type === 'tag') return `#${v.tag}`;
-  return 'All artworks';
+  const col = v.type === 'collection' ? state.collections.find((c) => c.id === v.id) : null;
+  if (col) {
+    const [first, ...rest] = col.name.split(' ');
+    const num = String(state.collections.indexOf(col) + 1).padStart(2, '0');
+    return { eyebrow: `Collection ${num}`, up: first, em: rest.join(' '), lede: col.description, collection: col };
+  }
+  return {
+    all: { eyebrow: 'Signal9 Studio', up: 'All', em: 'Works' },
+    favorites: { eyebrow: 'Signal9 Studio', up: 'Favourite', em: 'Works' },
+    printed: { eyebrow: 'In print', up: 'Printed', em: 'Works' },
+    unprinted: { eyebrow: 'Awaiting paper', up: 'Not yet', em: 'Printed' },
+    tag: { eyebrow: 'Tagged', up: `#${v.tag}`, em: '' },
+  }[v.type];
 }
 
 // ---------- Rendering ----------
 
 function render() {
-  renderNav();
+  renderFilters();
   renderGrid();
   renderSelection();
   if (state.drawerId) renderDrawer();
 }
 
-function renderNav() {
-  const count = (fn) => state.artworks.filter(fn).length;
-  const items = [
-    { type: 'all', label: 'All artworks', icon: icons.grid, n: state.artworks.length },
-    { type: 'favorites', label: 'Favourites', icon: icons.heart, n: count((a) => a.favorite) },
-    { type: 'printed', label: 'Printed', icon: icons.printer, n: count((a) => a.lastPrintedAt) },
-    { type: 'unprinted', label: 'Not yet printed', icon: icons.clock, n: count((a) => !a.lastPrintedAt) },
-  ];
-  $('#nav').innerHTML = items.map((i) => `
-    <button class="nav-item ${state.view.type === i.type ? 'on' : ''}" data-view="${i.type}" type="button">
-      ${i.icon}<span>${i.label}</span><span class="n">${i.n}</span>
-    </button>`).join('');
-
-  $('#collections').innerHTML = state.collections.map((c) => `
-    <div class="nav-item ${state.view.type === 'collection' && state.view.id === c.id ? 'on' : ''}" data-collection="${c.id}" role="button" tabindex="0">
-      ${icons.folder}<span>${esc(c.name)}</span>
-      <span class="n">${count((a) => a.collections.includes(c.id))}</span>
-      <button class="icon-btn rename" data-rename="${c.id}" title="Rename or delete" type="button">${icons.pencil}</button>
-    </div>`).join('') || '<div class="nav-empty">Group works into series, shows or themes.</div>';
+function renderFilters() {
+  const v = state.view;
+  const link = (attrs, label, on, n) =>
+    `<button class="filter ${on ? 'on' : ''}" ${attrs} type="button">${esc(label)}${n ? `<sup>${n}</sup>` : ''}</button>`;
+  const favs = state.artworks.filter((a) => a.favorite).length;
+  $('#filters').innerHTML = `
+    <span class="filter-label">View →</span>
+    ${link('data-view="all"', 'All', v.type === 'all')}
+    ${link('data-view="favorites"', 'Favourites', v.type === 'favorites', favs)}
+    ${link('data-view="printed"', 'Printed', v.type === 'printed')}
+    ${link('data-view="unprinted"', 'Not yet printed', v.type === 'unprinted')}
+    <span class="filter-label gap">Collections →</span>
+    ${state.collections.map((c) => link(`data-collection="${c.id}"`, c.name, v.type === 'collection' && v.id === c.id)).join('')}
+    <button class="filter add" id="newCollection" type="button" title="New collection">+ New</button>`;
 
   const tagCounts = new Map();
   for (const a of state.artworks) for (const t of a.tags) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
-  $('#tagCloud').innerHTML = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40)
-    .map(([t]) => `<span class="chip ${state.view.type === 'tag' && state.view.tag === t ? 'on' : ''}" data-tag="${esc(t)}">#${esc(t)}</span>`).join('');
+  const tags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
+  $('#tagRow').hidden = !tags.length;
+  $('#tagRow').innerHTML = '<span class="filter-label">Tags →</span>' +
+    tags.map(([t]) => `<button class="tag ${v.type === 'tag' && v.tag === t ? 'on' : ''}" data-tag="${esc(t)}" type="button">#${esc(t)}</button>`).join('');
 
   const sel = $('#addToCollection');
   sel.innerHTML = '<option value="">Add to collection…</option>' +
@@ -180,30 +185,72 @@ function plateOf(a) {
 
 function renderGrid() {
   const list = visibleArtworks();
-  $('#viewTitle').textContent = viewTitle();
-  $('#viewCount').textContent = `${list.length} ${list.length === 1 ? 'artwork' : 'artworks'}`;
+  const h = viewHeading();
+  $('#viewEyebrow').textContent = h.eyebrow;
+  $('#viewTitle').innerHTML = `<span class="up">${esc(h.up)}</span>${h.em ? ` <em>${esc(h.em)}</em>` : ''}`;
+  $('#viewLede').hidden = !h.lede;
+  $('#viewLede').textContent = h.lede || '';
+  $('#heroActions').innerHTML = h.collection
+    ? `<button class="link-btn" data-edit-collection="${h.collection.id}" type="button">Edit collection</button>`
+    : '';
+  $('#viewCount').textContent = String(list.length).padStart(2, '0');
+  $('#viewCountLabel').textContent = list.length === 1 ? 'Work' : 'Works';
   $('#empty').hidden = state.artworks.length > 0;
-  $('#grid').classList.toggle('selecting', state.selected.size > 0);
-  $('#grid').innerHTML = list.map(cardHtml).join('') ||
-    (state.artworks.length ? '<p class="nav-empty" style="grid-column:1/-1">Nothing in this view yet.</p>' : '');
+
+  const grid = $('#grid');
+  grid.classList.toggle('selecting', state.selected.size > 0);
+  let order = 0;
+  const rows = (arts) => `<div class="rows">${arts.map((a) => cardHtml(a, order++)).join('')}</div>`;
+  const works = (n) => `${n} ${n === 1 ? 'work' : 'works'}`;
+
+  // The full library reads like the website's All Works page: one chapter per collection.
+  if (state.view.type === 'all' && !state.search.trim() && state.collections.length) {
+    const sections = state.collections
+      .map((c, i) => ({ c, i, arts: list.filter((a) => a.collections.includes(c.id)) }))
+      .filter((x) => x.arts.length);
+    const loose = list.filter((a) => !a.collections.length);
+    grid.innerHTML = sections.map(({ c, i, arts }) => `
+      <section class="chapter" data-num="${String(i + 1).padStart(2, '0')}">
+        <header class="chapter-head">
+          <div><h2><button class="chapter-link" data-collection="${c.id}" type="button">${esc(c.name)}</button></h2>
+            ${c.description ? `<p>${esc(c.description)}</p>` : ''}</div>
+          <span class="chapter-count">${works(arts.length)}</span>
+        </header>
+        ${rows(arts)}
+      </section>`).join('') +
+      (loose.length ? `
+      <section class="chapter loose">
+        <header class="chapter-head"><div><h2>Unsorted</h2><p>Works not yet placed in a collection.</p></div>
+          <span class="chapter-count">${works(loose.length)}</span></header>
+        ${rows(loose)}
+      </section>` : '');
+  } else {
+    grid.innerHTML = list.length ? rows(list) : (state.artworks.length ? '<p class="quiet-note">Nothing in this view yet.</p>' : '');
+  }
   for (const a of list) if (a.thumb) state.seen.add(a.id);
 }
 
-function cardHtml(a) {
-  const thumb = a.thumb
+function cardHtml(a, index) {
+  const ar = a.width && a.height ? Math.min(2.4, Math.max(0.42, a.width / a.height)) : 1;
+  const fresh = !state.seen.has(a.id) && a.thumb;
+  const img = a.thumb
     ? `<img src="/files/thumbs/${a.thumb}" alt="" loading="lazy" draggable="false">`
-    : `<div class="placeholder">${a.display ? 'Preparing preview…' : esc(a.note || 'No preview')}</div>`;
+    : `<div class="placeholder">${a.display ? 'Preparing…' : esc(a.note || 'No preview')}</div>`;
   return `
-    <article class="card ${state.selected.has(a.id) ? 'selected' : ''} ${state.seen.has(a.id) ? '' : 'fresh'}" data-id="${a.id}" draggable="true">
-      <div class="thumb">${thumb}</div>
-      <div class="check" data-select title="Select">${icons.check}</div>
-      <button class="fav ${a.favorite ? 'on' : ''}" data-fav title="Favourite" type="button">${icons.heart}</button>
-      <div class="meta">
-        <div class="title-row"><div class="title" title="${esc(a.title)}">${esc(a.title)}</div><span class="plate">${plateOf(a)}</span></div>
-        <div class="sub">${stars(a.rating)}${a.width ? `<span>${a.width}×${a.height}</span>` : ''}
-          ${a.printCount ? `<span class="printed" title="Last printed ${timeAgo(a.lastPrintedAt)}">${icons.printer.replace('<svg', '<svg style="width:12px;height:12px"')} ${a.printCount}</span>` : ''}</div>
+    <article class="card ${state.selected.has(a.id) ? 'selected' : ''} ${fresh ? 'fresh' : ''}" data-id="${a.id}" draggable="true"
+      style="--ar:${ar.toFixed(3)};--d:${Math.min(index, 14) * 70}ms">
+      <div class="frame">
+        ${img}
+        <div class="veil"></div>
+        <div class="caption">
+          <span class="plate">${plateOf(a)}</span>
+          <span class="title">${esc(a.title)}</span>
+          <span class="meta">${stars(a.rating)}${a.width ? `<span>${a.width} × ${a.height}</span>` : ''}${a.printCount ? `<span>Printed ${a.printCount}×</span>` : ''}</span>
+        </div>
+        <div class="check" data-select title="Select">${icons.check}</div>
+        <button class="fav ${a.favorite ? 'on' : ''}" data-fav title="Favourite" type="button">${icons.heart}</button>
+        ${state.processing.has(a.id) ? '<div class="progress"></div>' : ''}
       </div>
-      ${state.processing.has(a.id) ? '<div class="progress"></div>' : ''}
     </article>`;
 }
 
@@ -211,18 +258,20 @@ function renderSelection() {
   const n = state.selected.size;
   $('#selectionBar').hidden = n === 0;
   $('#selectionCount').textContent = `${n} selected`;
-  $('#printSelected').textContent = n === 1 ? 'Print 1 artwork' : `Print ${n} artworks`;
+  $('#printSelected').textContent = n === 1 ? 'Print 1 work' : `Print ${n} works`;
 }
 
+// Ink levels: tiny bars in the printer chip, full bars in the printer popover.
 function renderInk() {
+  const ink = state.status?.ink || [];
+  $('#chipInks').innerHTML = ink.map((m) =>
+    `<i title="${esc(m.name)}: ${m.level}%" style="--lvl:${Math.max(4, m.level)}%;--ink:${esc(m.color)}"></i>`).join('');
+}
+
+function inkHtml() {
   const ink = state.status?.ink;
-  const panel = $('#inkPanel');
-  if (!ink?.length) {
-    panel.hidden = true;
-    return;
-  }
-  panel.hidden = false;
-  panel.innerHTML = `<h4>Ink levels</h4><div class="inks">${ink.map((m) => `
+  if (!ink?.length) return '';
+  return `<h4>Ink levels</h4><div class="inks">${ink.map((m) => `
     <div class="ink ${m.level <= 15 ? 'low' : ''}" title="${esc(m.name)}: ${m.level}%">
       <div class="tank"><div class="fill" style="height:${Math.max(2, m.level)}%;background:${esc(m.color)}"></div></div>
       <span class="lbl">${esc(shortInk(m.name))}</span>
@@ -249,6 +298,7 @@ function renderPrinterPopover() {
     <select id="popPrinter">${state.printers.map((p) => `<option value="${esc(p.name)}" ${p.name === state.printer?.name ? 'selected' : ''}>${esc(p.info)}</option>`).join('') || '<option>No printers found</option>'}</select>
     ${state.printers.length ? '' : '<p class="msg" style="margin:0">Add your ET-8500 in <b>System Settings → Printers &amp; Scanners</b>, then reload this page.</p>'}
     ${st?.message ? `<div class="msg">${esc(st.message)}</div>` : ''}
+    ${inkHtml()}
     <h4>Print jobs</h4>
     <div>${jobs.length ? jobs.map((j) => `
       <div class="job"><span class="t" title="${esc(j.title || j.id)}">${esc(j.title || j.id)}</span><span class="s">${esc(j.state)}</span>
@@ -277,7 +327,7 @@ function renderDrawer() {
   const src = a.display ? `/files/display/${a.display}` : a.thumb ? `/files/thumbs/${a.thumb}` : '';
   const traits = describe(a.analysis);
   d.innerHTML = `
-    <div class="hero">${src ? `<img src="${src}" alt="">` : '<span style="color:var(--faint)">No preview</span>'}
+    <div class="art">${src ? `<img src="${src}" alt="">` : '<span style="color:var(--faint)">No preview</span>'}
       <button class="icon-btn" data-close title="Close" type="button">${icons.close}</button></div>
     <div class="body">
       <div class="plate-line">Signal9 Studio · ${plateOf(a)}</div>
@@ -294,7 +344,7 @@ function renderDrawer() {
         <div class="tags-input">${a.tags.map((t) => `<span class="chip">#${esc(t)}<button type="button" data-untag="${esc(t)}" title="Remove">×</button></span>`).join('')}
           <input id="dTagInput" type="text" placeholder="Add tag, press Enter"></div></div>
       <div class="field"><span class="label">Collections</span>
-        <div class="check-list">${state.collections.map((c) => `<label><input type="checkbox" data-col="${c.id}" ${a.collections.includes(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('') || '<span class="nav-empty" style="padding:0">No collections yet. Create one in the sidebar.</span>'}</div></div>
+        <div class="check-list">${state.collections.map((c) => `<label><input type="checkbox" data-col="${c.id}" ${a.collections.includes(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('') || '<span class="quiet-note">No collections yet. Use <b>+ New</b> in the collection links.</span>'}</div></div>
       <div class="field"><label for="dNotes">Notes</label><textarea id="dNotes" placeholder="Edition, medium, where it’s shown…">${esc(a.notes)}</textarea></div>
       <div class="field"><span class="label">Details</span>
         <dl class="facts">
@@ -429,9 +479,16 @@ async function backfill() {
 // ---------- Collections ----------
 
 async function newCollection(addIds = []) {
-  const name = await ask({ title: 'New collection', message: 'A series, a show, a theme…', input: '', ok: 'Create' });
-  if (!name?.trim()) return null;
-  const col = await api('/api/collections', { method: 'POST', json: { name } });
+  const values = await ask({
+    title: 'New collection',
+    fields: [
+      { key: 'name', label: 'Name', placeholder: 'Fractures' },
+      { key: 'description', label: 'Description (optional)', placeholder: 'Portraits dissolved into fragments of memory…', multiline: true },
+    ],
+    ok: 'Create',
+  });
+  if (!values?.name.trim()) return null;
+  const col = await api('/api/collections', { method: 'POST', json: values });
   state.collections.push(col);
   if (addIds.length) await addToCollection(col.id, addIds);
   render();
@@ -449,16 +506,24 @@ async function addToCollection(colId, ids) {
 
 async function editCollection(id) {
   const col = state.collections.find((c) => c.id === id);
-  const name = await ask({ title: 'Rename collection', message: 'Leave the name empty to delete the collection.', input: col.name, ok: 'Save' });
-  if (name === null) return;
-  if (!name.trim()) {
+  const values = await ask({
+    title: 'Edit collection',
+    message: 'Leave the name empty to delete the collection. Its works stay in your library.',
+    fields: [
+      { key: 'name', label: 'Name', value: col.name },
+      { key: 'description', label: 'Description', value: col.description || '', multiline: true },
+    ],
+    ok: 'Save',
+  });
+  if (!values) return;
+  if (!values.name.trim()) {
     if (!(await ask({ title: `Delete “${col.name}”?`, message: 'The artworks stay in your library.', ok: 'Delete', danger: true }))) return;
     await api(`/api/collections/${id}`, { method: 'DELETE' });
     state.collections = state.collections.filter((c) => c.id !== id);
     for (const a of state.artworks) a.collections = a.collections.filter((c) => c !== id);
     if (state.view.id === id) state.view = { type: 'all' };
   } else {
-    Object.assign(col, await api(`/api/collections/${id}`, { method: 'PATCH', json: { name } }));
+    Object.assign(col, await api(`/api/collections/${id}`, { method: 'PATCH', json: values }));
   }
   render();
 }
@@ -484,7 +549,7 @@ function startPrint(ids) {
 // ---------- Events ----------
 
 function applyZoom() {
-  $('#grid').style.setProperty('--tile', `${$('#zoom').value}px`);
+  $('#grid').style.setProperty('--row', `${$('#zoom').value}px`);
 }
 
 let lastClicked = null;
@@ -501,6 +566,8 @@ function toggleSelect(id, range) {
 }
 
 $('#grid').addEventListener('click', (e) => {
+  const chapterLink = e.target.closest('.chapter-link');
+  if (chapterLink) return showView({ type: 'collection', id: chapterLink.dataset.collection });
   const card = e.target.closest('.card');
   if (!card) return;
   const id = card.dataset.id;
@@ -519,7 +586,7 @@ $('#grid').addEventListener('dblclick', (e) => {
   if (card) startPrint([card.dataset.id]);
 });
 
-// Drag cards onto a collection in the sidebar.
+// Drag cards onto a collection link to add them to it.
 $('#grid').addEventListener('dragstart', (e) => {
   const card = e.target.closest('.card');
   if (!card) return;
@@ -527,7 +594,7 @@ $('#grid').addEventListener('dragstart', (e) => {
   e.dataTransfer.setData('application/x-signal9', JSON.stringify(ids));
   e.dataTransfer.effectAllowed = 'copy';
 });
-$('#collections').addEventListener('dragover', (e) => {
+$('#filters').addEventListener('dragover', (e) => {
   const item = e.target.closest('[data-collection]');
   if (item && e.dataTransfer.types.includes('application/x-signal9')) {
     e.preventDefault();
@@ -535,8 +602,8 @@ $('#collections').addEventListener('dragover', (e) => {
     item.classList.add('drop-target');
   }
 });
-$('#collections').addEventListener('dragleave', (e) => e.target.closest?.('[data-collection]')?.classList.remove('drop-target'));
-$('#collections').addEventListener('drop', (e) => {
+$('#filters').addEventListener('dragleave', (e) => e.target.closest?.('[data-collection]')?.classList.remove('drop-target'));
+$('#filters').addEventListener('drop', (e) => {
   const item = e.target.closest('[data-collection]');
   const raw = e.dataTransfer.getData('application/x-signal9');
   $$('.drop-target').forEach((x) => x.classList.remove('drop-target'));
@@ -547,29 +614,29 @@ $('#collections').addEventListener('drop', (e) => {
   }
 });
 
-$('#nav').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-view]');
-  if (!b) return;
-  state.view = { type: b.dataset.view };
+function showView(view) {
+  state.view = view;
   render();
+  $('#main').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+$('#filters').addEventListener('click', (e) => {
+  if (e.target.closest('#newCollection')) return newCollection();
+  const viewBtn = e.target.closest('[data-view]');
+  if (viewBtn) return showView({ type: viewBtn.dataset.view });
+  const colBtn = e.target.closest('[data-collection]');
+  if (colBtn) showView({ type: 'collection', id: colBtn.dataset.collection });
 });
-$('#collections').addEventListener('click', (e) => {
-  const rename = e.target.closest('[data-rename]');
-  if (rename) return editCollection(rename.dataset.rename);
-  const item = e.target.closest('[data-collection]');
-  if (item) {
-    state.view = { type: 'collection', id: item.dataset.collection };
-    render();
-  }
+$('#heroActions').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-edit-collection]');
+  if (b) editCollection(b.dataset.editCollection);
 });
-$('#tagCloud').addEventListener('click', (e) => {
+$('#tagRow').addEventListener('click', (e) => {
   const chip = e.target.closest('[data-tag]');
   if (!chip) return;
-  state.view = state.view.type === 'tag' && state.view.tag === chip.dataset.tag ? { type: 'all' } : { type: 'tag', tag: chip.dataset.tag };
-  render();
+  showView(state.view.type === 'tag' && state.view.tag === chip.dataset.tag ? { type: 'all' } : { type: 'tag', tag: chip.dataset.tag });
 });
 
-$('#newCollection').onclick = () => newCollection();
 $('#importBtn').onclick = () => $('#fileInput').click();
 $('#fileInput').onchange = (e) => {
   importFiles(e.target.files);
@@ -586,7 +653,7 @@ $('#sort').onchange = (e) => {
 };
 $('#zoom').oninput = () => {
   applyZoom();
-  prefs.set('zoom', Number($('#zoom').value));
+  prefs.set('rowHeight', Number($('#zoom').value));
 };
 $('#selectAll').onclick = () => {
   visibleArtworks().forEach((a) => state.selected.add(a.id));

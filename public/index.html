@@ -13,15 +13,16 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <img class="mark" src="icon.svg" alt="" width="30" height="30">
-      <span class="wordmark"><span class="name">Signal<span>9</span> Studio</span><span class="sub">Print Room</span></span>
+      <img class="mark" src="icon.svg" alt="" width="28" height="28">
+      <span class="wordmark">Signal<span>9</span> Studio</span>
     </div>
+    <div class="tagline">Limited edition fine art prints · Tasmania</div>
     <label class="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-      <input id="search" type="search" placeholder="Search titles, tags and notes" autocomplete="off">
+      <input id="search" type="search" placeholder="Search works" autocomplete="off">
     </label>
     <button class="printer-chip" id="printerChip" type="button" aria-haspopup="dialog">
-      <span class="dot"></span><span class="name">Looking for printers…</span>
+      <span class="dot"></span><span class="name">Looking for printers…</span><span class="chip-inks" id="chipInks"></span>
     </button>
   </header>
 
@@ -29,75 +30,64 @@
     Simulated printer: no Mac print system was found, so prints are saved as PDFs in your library folder instead of printing.
   </div>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <button class="btn primary wide" id="importBtn" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Import artworks
-      </button>
-      <input id="fileInput" type="file" multiple accept="image/*,.tif,.tiff,.heic,.heif,.psd" hidden>
-
-      <nav class="nav" id="nav"></nav>
-
-      <div class="nav-section">
-        <div class="nav-title">Collections <button class="icon-btn" id="newCollection" title="New collection" type="button">+</button></div>
-        <div id="collections"></div>
+  <main class="library" id="main">
+    <section class="hero">
+      <svg class="s9-crackline" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
+        <path pathLength="1" d="M600 0 L628 60 L612 104 L656 150 L640 196 L690 260 L676 300"/>
+        <path class="faint" pathLength="1" d="M640 196 L720 214 L770 196"/>
+      </svg>
+      <div class="hero-text">
+        <div class="eyebrow" id="viewEyebrow">Signal9 Studio</div>
+        <h1 id="viewTitle"><span class="up">All</span> <em>Works</em></h1>
+        <p class="lede" id="viewLede" hidden></p>
+        <div class="hero-actions" id="heroActions"></div>
       </div>
+      <div class="counter"><span class="num" id="viewCount">00</span><span class="lbl" id="viewCountLabel">Works</span></div>
+    </section>
 
-      <div class="nav-section">
-        <div class="nav-title">Tags</div>
-        <div class="tag-cloud" id="tagCloud"></div>
-      </div>
-
-      <div class="ink-panel" id="inkPanel" hidden></div>
-    </aside>
-
-    <main class="main" id="main">
-      <div class="toolbar">
-        <svg class="s9-crackline" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
-          <path pathLength="1" d="M560 0 L585 26 L572 44 L610 63 L598 82 L640 120"/>
-          <path class="faint" pathLength="1" d="M598 82 L660 90 L700 78"/>
-        </svg>
-        <span class="ghost-num" id="ghostNum" aria-hidden="true">9</span>
-        <h1 id="viewTitle">All artworks</h1>
-        <span class="count" id="viewCount"></span>
-        <div class="spacer"></div>
-        <select id="sort" aria-label="Sort">
+    <nav class="filters" aria-label="Library views">
+      <div class="filter-links" id="filters"></div>
+      <div class="filter-tools">
+        <select id="sort" class="quiet" aria-label="Sort">
           <option value="new">Newest first</option>
           <option value="old">Oldest first</option>
           <option value="title">Title A–Z</option>
           <option value="rating">Highest rated</option>
           <option value="printed">Recently printed</option>
         </select>
-        <input id="zoom" type="range" min="140" max="360" value="220" aria-label="Thumbnail size">
+        <input id="zoom" type="range" min="150" max="380" value="240" aria-label="Thumbnail size">
+        <button class="link-btn accent" id="importBtn" type="button">+ Import works</button>
+        <input id="fileInput" type="file" multiple accept="image/*,.tif,.tiff,.heic,.heif,.psd" hidden>
       </div>
+    </nav>
+    <div class="tag-row" id="tagRow" hidden></div>
 
-      <div class="selection-bar" id="selectionBar" hidden>
-        <span id="selectionCount"></span>
-        <button class="btn ghost" id="selectAll" type="button">Select all</button>
-        <button class="btn ghost" id="clearSelection" type="button">Clear</button>
-        <div class="spacer"></div>
-        <select id="addToCollection" aria-label="Add selection to collection"></select>
-        <button class="btn primary" id="printSelected" type="button">Print selected</button>
-      </div>
+    <div class="selection-bar" id="selectionBar" hidden>
+      <span id="selectionCount"></span>
+      <button class="link-btn" id="selectAll" type="button">Select all</button>
+      <button class="link-btn" id="clearSelection" type="button">Clear</button>
+      <div class="spacer"></div>
+      <select id="addToCollection" class="quiet" aria-label="Add selection to collection"></select>
+      <button class="btn primary" id="printSelected" type="button">Print selected</button>
+    </div>
 
-      <div class="grid" id="grid"></div>
-      <div class="empty" id="empty" hidden>
-        <svg class="collage" viewBox="0 0 230 170" aria-hidden="true">
-          <rect class="frag" x="92" y="6" width="96" height="74" fill="#d6c9ae" opacity=".82"/>
-          <rect class="frag" x="150" y="54" width="58" height="46" fill="#1d2c40"/>
-          <rect class="frag" x="34" y="44" width="78" height="94" fill="#1c1b1a" stroke="rgba(232,226,217,.2)"/>
-          <rect class="frag" x="100" y="98" width="44" height="40" fill="#b4532a" opacity=".85"/>
-          <rect class="frag" x="64" y="132" width="28" height="26" fill="#d6c9ae" opacity=".6"/>
-          <circle cx="120" cy="30" r="2.4" fill="#0a0908"/><circle cx="160" cy="22" r="1.6" fill="#c9973f"/>
-          <circle cx="132" cy="44" r="1.2" fill="#0a0908"/><circle cx="174" cy="40" r="2" fill="#b4532a"/>
-          <circle cx="58" cy="70" r="1.4" fill="#c9973f"/>
-          <path class="crack" pathLength="1" d="M108 6 L124 26 L114 40 L140 58 L130 76 L150 96 L142 120 L160 164"/>
-        </svg>
-        <h2>Your collection begins here</h2>
-        <p>Drop artworks anywhere, or use <b>Import artworks</b>. JPEG, PNG, WebP, TIFF and HEIC.</p>
-      </div>
-    </main>
-  </div>
+    <div class="gallery" id="grid"></div>
+    <div class="empty" id="empty" hidden>
+      <svg class="collage" viewBox="0 0 230 170" aria-hidden="true">
+        <rect class="frag" x="92" y="6" width="96" height="74" fill="#d6c9ae" opacity=".82"/>
+        <rect class="frag" x="150" y="54" width="58" height="46" fill="#1d2c40"/>
+        <rect class="frag" x="34" y="44" width="78" height="94" fill="#1c1b1a" stroke="rgba(232,226,217,.2)"/>
+        <rect class="frag" x="100" y="98" width="44" height="40" fill="#b4532a" opacity=".85"/>
+        <rect class="frag" x="64" y="132" width="28" height="26" fill="#d6c9ae" opacity=".6"/>
+        <circle cx="120" cy="30" r="2.4" fill="#0a0908"/><circle cx="160" cy="22" r="1.6" fill="#c9973f"/>
+        <circle cx="132" cy="44" r="1.2" fill="#0a0908"/><circle cx="174" cy="40" r="2" fill="#b4532a"/>
+        <circle cx="58" cy="70" r="1.4" fill="#c9973f"/>
+        <path class="crack" pathLength="1" d="M108 6 L124 26 L114 40 L140 58 L130 76 L150 96 L142 120 L160 164"/>
+      </svg>
+      <h2>Your collection <em>begins here</em></h2>
+      <p>Drop artworks anywhere, or choose <b>+ Import works</b>. JPEG, PNG, WebP, TIFF and HEIC.</p>
+    </div>
+  </main>
 
   <!-- Artwork detail -->
   <aside class="drawer" id="drawer" hidden aria-label="Artwork details"></aside>
@@ -108,13 +98,13 @@
       <button class="icon-btn" id="studioClose" type="button" title="Back to library">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
       </button>
-      <div class="titles"><span class="eyebrow">Signal9 Studio</span><h2>The print room</h2></div>
+      <div class="titles"><span class="eyebrow">Signal9 Studio</span><h2>The print <em>room</em></h2></div>
       <div class="filmstrip" id="filmstrip"></div>
     </header>
     <div class="studio-body">
       <div class="stage">
         <div class="stage-tools">
-          <div class="segmented" id="previewMode" role="radiogroup" aria-label="Preview">
+          <div class="tabs" id="previewMode" role="radiogroup" aria-label="Preview">
             <button type="button" data-mode="original">Original</button>
             <button type="button" data-mode="adjusted" class="on">Print-ready</button>
             <button type="button" data-mode="paper">Paper simulation</button>

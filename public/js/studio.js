@@ -224,7 +224,7 @@ function renderPanel() {
 
     <section>
       <h3>Layout</h3>
-      <div class="segmented" id="pFit">
+      <div class="tabs" id="pFit">
         ${[['fit', 'Fit'], ['fill', 'Fill & crop'], ['custom', 'Custom size']].map(([v, l]) => `<button type="button" data-fit="${v}" class="${S.layout.fit === v ? 'on' : ''}">${l}</button>`).join('')}
       </div>
       ${S.layout.fit === 'custom' ? `<div class="unit-input"><label for="pWidth">Image width</label><input id="pWidth" type="number" min="10" max="400" step="1" value="${S.layout.customWidthMm}"> mm</div>` : ''}

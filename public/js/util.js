@@ -32,9 +32,12 @@ export function toast(message, kind = '', ms = 4200) {
 
 /**
  * Signal9-styled replacement for alert/confirm/prompt (the Mac app has no built-in prompt()).
- * With `input` set, resolves to the entered text or null; otherwise to true/false.
+ * - `input`: one text field; resolves to its text, or null if cancelled.
+ * - `fields`: [{ key, label, value, multiline, placeholder }]; resolves to { key: text }, or null.
+ * - neither: a yes/no question; resolves to true or false.
  */
-export function ask({ title, message = '', input = null, ok = 'OK', cancel = 'Cancel', danger = false }) {
+export function ask({ title, message = '', input = null, fields = null, ok = 'OK', cancel = 'Cancel', danger = false }) {
+  if (input !== null) fields = [{ key: 'value', value: input }];
   return new Promise((resolve) => {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
@@ -42,32 +45,40 @@ export function ask({ title, message = '', input = null, ok = 'OK', cancel = 'Ca
       <form class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
         <h3>${esc(title)}</h3>
         ${message ? `<p>${esc(message)}</p>` : ''}
-        ${input !== null ? `<input type="text" value="${esc(input)}" autocomplete="off">` : ''}
+        ${(fields || []).map((f) => `
+          <label class="modal-field">${f.label ? `<span>${esc(f.label)}</span>` : ''}
+            ${f.multiline
+              ? `<textarea data-key="${esc(f.key)}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`
+              : `<input type="text" data-key="${esc(f.key)}" value="${esc(f.value || '')}" placeholder="${esc(f.placeholder || '')}" autocomplete="off">`}
+          </label>`).join('')}
         <div class="modal-actions">
           <button type="button" class="btn ghost" data-cancel>${esc(cancel)}</button>
-          <button type="submit" class="btn primary ${danger ? 'danger-fill' : ''}">${esc(ok)}</button>
+          <button type="submit" class="btn outline ${danger ? 'danger' : ''}">${esc(ok)}</button>
         </div>
       </form>`;
     const form = backdrop.querySelector('form');
-    const field = form.querySelector('input');
+    const inputs = [...form.querySelectorAll('[data-key]')];
+    const values = () => Object.fromEntries(inputs.map((el) => [el.dataset.key, el.value]));
     const finish = (value) => {
       backdrop.remove();
       resolve(value);
     };
+    const cancelValue = fields ? null : false;
     form.onsubmit = (e) => {
       e.preventDefault();
-      finish(field ? field.value : true);
+      if (input !== null) finish(values().value);
+      else finish(fields ? values() : true);
     };
-    form.querySelector('[data-cancel]').onclick = () => finish(field ? null : false);
-    backdrop.onclick = (e) => e.target === backdrop && finish(field ? null : false);
+    form.querySelector('[data-cancel]').onclick = () => finish(cancelValue);
+    backdrop.onclick = (e) => e.target === backdrop && finish(cancelValue);
     // Keep Escape and shortcuts from reaching the screens underneath.
     form.addEventListener('keydown', (e) => {
       e.stopPropagation();
-      if (e.key === 'Escape') finish(field ? null : false);
+      if (e.key === 'Escape') finish(cancelValue);
     });
     document.body.append(backdrop);
-    (field || form.querySelector('[type=submit]')).focus();
-    field?.select();
+    (inputs[0] || form.querySelector('[type=submit]')).focus();
+    inputs[0]?.select?.();
   });
 }
 

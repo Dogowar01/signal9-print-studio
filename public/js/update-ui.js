@@ -40,7 +40,7 @@ function content(info) {
         ${info.notes ? `<p>${esc(info.notes)}</p>` : ''}
         <p class="meta">${formatBytes(info.size)} download · your library isn’t touched</p>
         <div class="actions"><button class="btn ghost" data-later type="button">Later</button>
-        <button class="btn primary" data-update type="button">Update &amp; restart</button></div>`;
+        <button class="btn outline" data-update type="button">Update &amp; restart</button></div>`;
     case 'progress':
       return `${head(`Downloading ${v.toLowerCase()}`)}
         <div class="bar"><i style="width:${info.percent}%"></i></div><p class="meta">${info.percent}%</p>`;
@@ -55,7 +55,7 @@ function content(info) {
     case 'error':
       return `${head('The update didn’t finish')}<p>${esc(info.message)}</p>
         <div class="actions"><button class="btn ghost" data-later type="button">Later</button>
-        <button class="btn primary" data-update type="button">Try again</button></div>`;
+        <button class="btn outline" data-update type="button">Try again</button></div>`;
     default:
       return '';
   }

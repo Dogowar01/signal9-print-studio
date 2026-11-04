@@ -152,17 +152,23 @@ export class Library {
     await this.save();
   }
 
-  async addCollection(name) {
-    const col = { id: randomUUID(), name: String(name).trim().slice(0, 100) || 'Untitled collection', createdAt: new Date().toISOString() };
+  async addCollection({ name, description = '' }) {
+    const col = {
+      id: randomUUID(),
+      name: String(name ?? '').trim().slice(0, 100) || 'Untitled collection',
+      description: String(description ?? '').trim().slice(0, 400),
+      createdAt: new Date().toISOString(),
+    };
     this.data.collections.push(col);
     await this.save();
     return col;
   }
 
-  async renameCollection(id, name) {
+  async updateCollection(id, { name, description }) {
     const col = this.data.collections.find((c) => c.id === id);
     if (!col) throw httpError(404, 'Collection not found.');
-    col.name = String(name).trim().slice(0, 100) || col.name;
+    if (name !== undefined) col.name = String(name).trim().slice(0, 100) || col.name;
+    if (description !== undefined) col.description = String(description).trim().slice(0, 400);
     await this.save();
     return col;
   }

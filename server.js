@@ -116,8 +116,8 @@ export async function startServer({ ports = [4321], libraryDir = DEFAULT_LIBRARY
       return { ok: true };
     }],
 
-    ['POST', /^\/api\/collections$/, async (req) => library.addCollection((await readJson(req)).name)],
-    ['PATCH', /^\/api\/collections\/([\w-]+)$/, async (req, [id]) => library.renameCollection(id, (await readJson(req)).name)],
+    ['POST', /^\/api\/collections$/, async (req) => library.addCollection(await readJson(req))],
+    ['PATCH', /^\/api\/collections\/([\w-]+)$/, async (req, [id]) => library.updateCollection(id, await readJson(req))],
     ['DELETE', /^\/api\/collections\/([\w-]+)$/, async (req, [id]) => {
       await library.removeCollection(id);
       return { ok: true };
