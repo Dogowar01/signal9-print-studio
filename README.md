@@ -48,10 +48,13 @@ Dock icon to bring it back, and press **⌘Q** to quit.
    After that it opens normally. To keep it in the Dock, right-click its Dock icon while it's running and
    choose *Options → Keep in Dock*.
 
-**Menus:** *File → Import Artworks…* (⌘O), *File → Print…* (⌘P), and *File → Show Library in Finder*.
+**Menus:** *File → Import Artworks…* (⌘O), *File → Print…* (⌘P), *File → Show Library in Finder*, and
+*Signal9 Print Studio → Check for Updates…*.
 
-**Updating:** download the newer `.dmg` from Releases and drag the app into Applications again, replacing the
-old one. Your library is kept: it lives in your Pictures folder, not inside the app.
+**Updates install themselves.** When a new version is published, the app shows a card saying it's ready.
+Click **Update & restart**: it downloads the new version, checks it against GitHub's fingerprint, replaces
+itself in Applications and reopens. No re-approval needed. Your library is never touched: it lives in your
+Pictures folder, not inside the app. (Versions before 1.2.0 don't have the updater, so install 1.2.0 by hand once.)
 
 ### Running it from the source code instead
 
@@ -121,14 +124,23 @@ npm run build:mac  # build dist/Signal9-Print-Studio-<version>-arm64.dmg (macOS 
 
 On a computer without CUPS (such as Windows), the simulated printer is used automatically.
 
-**Releases are built by GitHub.** Pushing a version tag (for example `git tag v1.1.0 && git push --tags`)
-runs `.github/workflows/build-mac.yml` on an Apple silicon Mac in GitHub's cloud, which builds the `.dmg` and
-attaches it to a new Release. *Actions → Build Mac app → Run workflow* builds one without publishing a release.
+**Releasing a new version:**
+1. Bump `version` in `package.json` and commit.
+2. Tag it with a short note about what changed. The note's first paragraph is what the app's update card shows:
+   ```bash
+   git tag -a v1.3.0 -m "New fine-art paper profiles and faster previews."
+   git push && git push --tags
+   ```
+3. GitHub builds the `.dmg` on an Apple silicon Mac (`.github/workflows/build-mac.yml`) and publishes the release.
+   Installed copies offer the update within a few hours, or straight away via *Check for Updates…*.
+
+*Actions → Build Mac app → Run workflow* builds a `.dmg` without publishing a release.
 
 | Path | Purpose |
 |---|---|
 | `electron/main.js` | the Mac app: window, Dock behaviour, menus, runs the server |
-| `electron/preload.cjs` | the small bridge that passes menu commands to the page |
+| `electron/preload.cjs` | the small bridge that passes menu commands and update messages to the page |
+| `electron/updater.js` | checks GitHub Releases, downloads, verifies and installs updates |
 | `server.js` | local web server and API, bound to 127.0.0.1 only |
 | `server/printing.js` | CUPS integration (`lpstat`, `lpoptions`, `lp`, `cancel`, `ipptool`) |
 | `server/ppd.js` | reads the driver's options, labels and paper sizes |

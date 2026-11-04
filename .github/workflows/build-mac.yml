@@ -35,12 +35,17 @@ jobs:
           name: Signal9-Print-Studio-mac
           path: dist/*.dmg
 
+      # The tag's message becomes the release notes; its first paragraph is what
+      # the app's update card shows. Tag with: git tag -a v1.2.0 -m "What's new…"
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          NOTES=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          printf '%s\n\n---\nFirst time installing? Download the .dmg below, open it and drag Signal9 Print Studio into Applications, then see the README for the one-time approval step. Already installed? The app offers this update itself.\n' "$NOTES" > notes.md
           gh release create "$GITHUB_REF_NAME" dist/*.dmg \
             --title "Signal9 Print Studio $GITHUB_REF_NAME" \
-            --notes "Download the .dmg below, open it and drag Signal9 Print Studio into Applications. First launch: see the README's install steps." \
+            --notes-file notes.md \
           || gh release upload "$GITHUB_REF_NAME" dist/*.dmg --clobber

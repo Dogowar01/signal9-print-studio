@@ -555,3 +555,22 @@ details.all-settings[open] summary::after { content: "Hide"; }
 .is-app.on-darwin .studio-head { padding-left: 92px; }
 .is-app.on-darwin .brand { width: 200px; }
 .is-app .topbar :is(input, button, label, a), .is-app .studio-head :is(button, .filmstrip) { -webkit-app-region: no-drag; }
+
+/* ── Update card (Mac app) ── */
+.update-card {
+  position: fixed; right: 22px; bottom: 22px; z-index: 110; width: 340px; padding: 18px 20px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: rgba(17, 16, 16, .97); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow), 0 0 50px rgba(142, 69, 133, .18); backdrop-filter: blur(8px);
+  animation: s9-rise .6s var(--ease) both;
+}
+.update-card::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--sienna-light); box-shadow: 0 0 10px var(--plum); }
+.update-card .eyebrow { font-size: 9px; letter-spacing: .32em; text-transform: uppercase; color: var(--sienna-light); }
+.update-card h4 { margin: 0; font-family: var(--serif); font-style: italic; font-weight: 300; font-size: 24px; line-height: 1.15; color: var(--white); }
+.update-card p { margin: 0; font-size: 13px; color: var(--light-grey); line-height: 1.5; }
+.update-card .meta { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--warm-grey); }
+.update-card .actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+.update-card .bar { height: 1px; background: rgba(232, 226, 217, .15); margin: 6px 0 2px; overflow: hidden; }
+.update-card .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--sienna-light), var(--plum-light)); box-shadow: 0 0 8px var(--plum); transition: width .3s ease; }
+.update-card .bar.busy i { width: 40%; animation: s9-busy 1.2s ease-in-out infinite; }
+@keyframes s9-busy { from { transform: translateX(-100%); } to { transform: translateX(250%); } }

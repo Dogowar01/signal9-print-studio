@@ -3,6 +3,7 @@
 import { api, $, $$, esc, toast, ask, loadImage, prefs, icons, stars, formatBytes, timeAgo } from './util.js';
 import { analyzeImage, describe, ANALYSIS_VERSION } from './analyze.js';
 import { openStudio } from './studio.js';
+import { showUpdate } from './update-ui.js';
 
 const state = {
   artworks: [],
@@ -679,6 +680,7 @@ function printShortcut() {
 
 if (window.signal9App) {
   document.documentElement.classList.add('is-app', `on-${window.signal9App.platform}`);
+  window.signal9App.onUpdate((info) => showUpdate(info, () => window.signal9App.installUpdate()));
   window.signal9App.onMenu(async (command) => {
     if (command === 'print' && $('#studio').hidden) printShortcut();
     if (command === 'refresh') {

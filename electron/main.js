@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../server.js';
+import { setupUpdater } from './updater.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const isMac = process.platform === 'darwin';
@@ -20,6 +21,7 @@ app.setName('Signal9 Print Studio');
 
 let server = null;
 let win = null;
+let updater = null;
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -34,6 +36,7 @@ if (!app.requestSingleInstanceLock()) {
       app.quit();
       return;
     }
+    updater = setupUpdater({ getWindow: () => win });
     Menu.setApplicationMenu(buildMenu());
     showWindow();
   });
@@ -90,6 +93,7 @@ function showWindow() {
       openExternal(url);
     }
   });
+  win.webContents.on('did-finish-load', () => updater?.announce());
   win.loadURL(server.url);
 }
 
@@ -133,7 +137,21 @@ async function importFromMenu() {
 
 function buildMenu() {
   return Menu.buildFromTemplate([
-    ...(isMac ? [{ role: 'appMenu' }] : []),
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { label: 'Check for Updates…', click: () => updater.checkNow() },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    }] : []),
     {
       label: 'File',
       submenu: [
@@ -162,7 +180,10 @@ function buildMenu() {
     { role: 'windowMenu' },
     {
       role: 'help',
-      submenu: [{ label: 'Signal9 Print Studio on GitHub', click: () => openExternal(REPO_URL) }],
+      submenu: [
+        { label: 'Signal9 Print Studio on GitHub', click: () => openExternal(REPO_URL) },
+        ...(isMac ? [] : [{ label: 'Check for Updates…', click: () => updater.checkNow() }]),
+      ],
     },
   ]);
 }
