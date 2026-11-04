@@ -1,14 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Signal9 mark: framed sienna 9 (from the Signal9 logo) with a collage fragment and hairline crack -->
+  <!-- Signal9 mark: framed sienna 9 (from the Signal9 logo) set into mosaic tiles, with flecks of paint -->
   <rect width="64" height="64" fill="#0a0908"/>
-  <rect x="38" y="5" width="20" height="15" fill="#d6c9ae" opacity=".85"/>
-  <rect x="45" y="15" width="12" height="10" fill="#1d2c40"/>
-  <circle cx="42" cy="9" r="1" fill="#0a0908"/>
-  <circle cx="54" cy="11" r=".8" fill="#c9973f"/>
+  <g stroke="#0a0908" stroke-width="1">
+    <rect x="36" y="4" width="12" height="9" fill="#c2412b"/>
+    <rect x="48" y="4" width="12" height="16" fill="#d9a23a"/>
+    <rect x="40" y="13" width="8" height="9" fill="#2f5a74"/>
+    <rect x="4" y="46" width="9" height="14" fill="#b4532a"/>
+    <rect x="13" y="53" width="8" height="7" fill="#e4d8bf" opacity=".85"/>
+  </g>
+  <circle cx="44" cy="8" r="1" fill="#0a0908"/>
+  <circle cx="55" cy="25" r="1.1" fill="#e07a2e"/>
+  <circle cx="17" cy="44" r=".9" fill="#e07a2e"/>
   <rect x="3" y="3" width="58" height="58" fill="none" stroke="#e8e2d9" stroke-width="1.6" opacity=".7"/>
   <g fill="none" stroke="#b5623a" stroke-width="7.5" stroke-linecap="butt">
     <ellipse cx="30" cy="26" rx="9" ry="10.5"/>
     <path d="M39 26v14c0 8-4.5 12-12 12h-6"/>
   </g>
-  <path d="M10 60 L17 47 L14 40 L22 31" fill="none" stroke="#c77bb4" stroke-width=".8" opacity=".7"/>
 </svg>

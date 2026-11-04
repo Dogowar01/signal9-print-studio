@@ -32,17 +32,14 @@
 
   <main class="library" id="main">
     <section class="hero">
-      <svg class="s9-crackline" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
-        <path pathLength="1" d="M600 0 L628 60 L612 104 L656 150 L640 196 L690 260 L676 300"/>
-        <path class="faint" pathLength="1" d="M640 196 L720 214 L770 196"/>
-      </svg>
+      <div class="hero-mosaic" id="heroMosaic" aria-hidden="true"></div>
+      <div class="hero-splatter" aria-hidden="true"></div>
       <div class="hero-text">
-        <div class="eyebrow" id="viewEyebrow">Signal9 Studio</div>
+        <div class="eyebrow"><span id="viewEyebrow">Signal9 Studio</span><span class="count"><span id="viewCount">00</span> <span id="viewCountLabel">Works</span></span></div>
         <h1 id="viewTitle"><span class="up">All</span> <em>Works</em></h1>
         <p class="lede" id="viewLede" hidden></p>
         <div class="hero-actions" id="heroActions"></div>
       </div>
-      <div class="counter"><span class="num" id="viewCount">00</span><span class="lbl" id="viewCountLabel">Works</span></div>
     </section>
 
     <nav class="filters" aria-label="Library views">
@@ -75,16 +72,33 @@
 
     <div class="gallery" id="grid"></div>
     <div class="empty" id="empty" hidden>
-      <svg class="collage" viewBox="0 0 230 170" aria-hidden="true">
-        <rect class="frag" x="92" y="6" width="96" height="74" fill="#d6c9ae" opacity=".82"/>
-        <rect class="frag" x="150" y="54" width="58" height="46" fill="#1d2c40"/>
-        <rect class="frag" x="34" y="44" width="78" height="94" fill="#1c1b1a" stroke="rgba(232,226,217,.2)"/>
-        <rect class="frag" x="100" y="98" width="44" height="40" fill="#b4532a" opacity=".85"/>
-        <rect class="frag" x="64" y="132" width="28" height="26" fill="#d6c9ae" opacity=".6"/>
-        <circle cx="120" cy="30" r="2.4" fill="#0a0908"/><circle cx="160" cy="22" r="1.6" fill="#c9973f"/>
-        <circle cx="132" cy="44" r="1.2" fill="#0a0908"/><circle cx="174" cy="40" r="2" fill="#b4532a"/>
-        <circle cx="58" cy="70" r="1.4" fill="#c9973f"/>
-        <path class="crack" pathLength="1" d="M108 6 L124 26 L114 40 L140 58 L130 76 L150 96 L142 120 L160 164"/>
+      <svg class="collage" viewBox="0 0 240 170" aria-hidden="true">
+        <g class="tiles">
+          <rect x="0" y="0" width="58" height="62" fill="#181614"/>
+          <rect x="60" y="0" width="34" height="40" fill="#c2412b"/>
+          <rect x="96" y="0" width="70" height="40" fill="#1d1b18"/>
+          <rect x="168" y="0" width="72" height="56" fill="#2f5a74"/>
+          <rect x="60" y="42" width="52" height="58" fill="#d9a23a"/>
+          <rect x="114" y="42" width="52" height="30" fill="#e07a2e"/>
+          <rect x="0" y="64" width="58" height="50" fill="#b4532a"/>
+          <rect x="114" y="74" width="24" height="26" fill="#e4d8bf"/>
+          <rect x="140" y="74" width="26" height="50" fill="#131211"/>
+          <rect x="168" y="58" width="40" height="66" fill="#24201c"/>
+          <rect x="210" y="58" width="30" height="34" fill="#c98a2e"/>
+          <rect x="210" y="94" width="30" height="76" fill="#181614"/>
+          <rect x="0" y="116" width="40" height="54" fill="#1d1b18"/>
+          <rect x="42" y="102" width="70" height="68" fill="#131211"/>
+          <rect x="114" y="102" width="24" height="68" fill="#9b4f2a"/>
+          <rect x="140" y="126" width="68" height="44" fill="#466f88"/>
+        </g>
+        <g class="paint">
+          <circle cx="78" cy="58" r="3.2" fill="#e07a2e"/><circle cx="86" cy="66" r="1.4" fill="#e8e2d9"/>
+          <circle cx="132" cy="54" r="2.2" fill="#0a0908"/><circle cx="150" cy="36" r="1.6" fill="#d9a23a"/>
+          <circle cx="188" cy="24" r="2.6" fill="#e07a2e"/><circle cx="198" cy="34" r="1.1" fill="#e8e2d9"/>
+          <circle cx="30" cy="90" r="1.6" fill="#e8e2d9"/><circle cx="96" cy="128" r="4" fill="#e07a2e"/>
+          <path d="M96 128v30" stroke="#e07a2e" stroke-width="1.3" stroke-linecap="round"/>
+          <circle cx="178" cy="148" r="1.8" fill="#d9a23a"/><circle cx="224" cy="78" r="1.2" fill="#0a0908"/>
+        </g>
       </svg>
       <h2>Your collection <em>begins here</em></h2>
       <p>Drop artworks anywhere, or choose <b>+ Import works</b>. JPEG, PNG, WebP, TIFF and HEIC.</p>

@@ -4,6 +4,9 @@ import { api, $, $$, esc, toast, ask, loadImage, prefs, icons, stars, formatByte
 import { analyzeImage, describe, ANALYSIS_VERSION } from './analyze.js';
 import { openStudio } from './studio.js';
 import { showUpdate } from './update-ui.js';
+import { applyBrandTextures, renderHeroMosaic, revealCard } from './mosaic.js';
+
+applyBrandTextures();
 
 const state = {
   artworks: [],
@@ -197,6 +200,10 @@ function renderGrid() {
   $('#viewCount').textContent = String(list.length).padStart(2, '0');
   $('#viewCountLabel').textContent = list.length === 1 ? 'Work' : 'Works';
   $('#empty').hidden = state.artworks.length > 0;
+  // The hero wall shows favourites and the best-rated works in view first.
+  const v = state.view;
+  const featured = [...list].sort((a, b) => (b.favorite - a.favorite) || (b.rating - a.rating));
+  renderHeroMosaic($('#heroMosaic'), featured, `${v.type}:${v.id || v.tag || ''}`);
 
   const grid = $('#grid');
   grid.classList.toggle('selecting', isSelecting());
@@ -228,6 +235,7 @@ function renderGrid() {
   } else {
     grid.innerHTML = list.length ? rows(list) : (state.artworks.length ? '<p class="quiet-note">Nothing in this view yet.</p>' : '');
   }
+  for (const card of grid.querySelectorAll('.card.fresh')) revealCard(card);
   for (const a of list) if (a.thumb) state.seen.add(a.id);
 }
 
