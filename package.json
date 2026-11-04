@@ -1,17 +1,26 @@
 {
   "name": "signal9-print-studio",
-  "version": "1.0.0",
+  "productName": "Signal9 Print Studio",
+  "version": "1.1.0",
   "description": "Organise digital artworks and print them on an Epson ET-8500 with paper-aware colour and quality settings.",
   "type": "module",
+  "main": "electron/main.js",
   "private": true,
   "license": "MIT",
+  "author": "Signal9 Studio",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
+    "app": "electron .",
+    "build:mac": "bash build/build-mac.sh",
     "start": "node server.js",
     "open": "SIGNAL9_OPEN=1 node server.js",
     "simulate": "SIGNAL9_MOCK=1 node server.js",
     "test": "node --test"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.2.2"
   }
 }

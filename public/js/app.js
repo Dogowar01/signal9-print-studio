@@ -1,6 +1,6 @@
 // Library screen: importing, organising and selecting artworks.
 
-import { api, $, $$, esc, toast, loadImage, prefs, icons, stars, formatBytes, timeAgo } from './util.js';
+import { api, $, $$, esc, toast, ask, loadImage, prefs, icons, stars, formatBytes, timeAgo } from './util.js';
 import { analyzeImage, describe, ANALYSIS_VERSION } from './analyze.js';
 import { openStudio } from './studio.js';
 
@@ -326,7 +326,7 @@ function renderDrawer() {
     collections: c.checked ? [...a.collections, c.dataset.col] : a.collections.filter((x) => x !== c.dataset.col),
   })));
   $('#dDelete', d).onclick = async () => {
-    if (!confirm(`Remove “${a.title}” from the library?\n\nThe original file is moved to the library’s trash folder, not permanently deleted.`)) return;
+    if (!(await ask({ title: `Remove “${a.title}”?`, message: 'The original file is moved to the library’s trash folder, not permanently deleted.', ok: 'Remove', danger: true }))) return;
     await api(`/api/artworks/${a.id}`, { method: 'DELETE' });
     state.artworks = state.artworks.filter((x) => x.id !== a.id);
     state.selected.delete(a.id);
@@ -428,7 +428,7 @@ async function backfill() {
 // ---------- Collections ----------
 
 async function newCollection(addIds = []) {
-  const name = prompt('Name for the new collection:');
+  const name = await ask({ title: 'New collection', message: 'A series, a show, a theme…', input: '', ok: 'Create' });
   if (!name?.trim()) return null;
   const col = await api('/api/collections', { method: 'POST', json: { name } });
   state.collections.push(col);
@@ -448,10 +448,10 @@ async function addToCollection(colId, ids) {
 
 async function editCollection(id) {
   const col = state.collections.find((c) => c.id === id);
-  const name = prompt('Rename collection (leave empty to delete it):', col.name);
+  const name = await ask({ title: 'Rename collection', message: 'Leave the name empty to delete the collection.', input: col.name, ok: 'Save' });
   if (name === null) return;
   if (!name.trim()) {
-    if (!confirm(`Delete the collection “${col.name}”? The artworks stay in your library.`)) return;
+    if (!(await ask({ title: `Delete “${col.name}”?`, message: 'The artworks stay in your library.', ok: 'Delete', danger: true }))) return;
     await api(`/api/collections/${id}`, { method: 'DELETE' });
     state.collections = state.collections.filter((c) => c.id !== id);
     for (const a of state.artworks) a.collections = a.collections.filter((c) => c !== id);
@@ -664,9 +664,30 @@ document.addEventListener('keydown', (e) => {
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'p' && $('#studio').hidden) {
     e.preventDefault();
-    const ids = state.selected.size ? [...state.selected] : state.drawerId ? [state.drawerId] : [];
-    if (ids.length) startPrint(ids);
+    printShortcut();
   }
 });
+
+// ⌘P: print the selection, or the artwork whose details are open.
+function printShortcut() {
+  const ids = state.selected.size ? [...state.selected] : state.drawerId ? [state.drawerId] : [];
+  if (ids.length) startPrint(ids);
+  else toast('Select one or more artworks to print.');
+}
+
+// ---------- Running inside the Mac app ----------
+
+if (window.signal9App) {
+  document.documentElement.classList.add('is-app', `on-${window.signal9App.platform}`);
+  window.signal9App.onMenu(async (command) => {
+    if (command === 'print' && $('#studio').hidden) printShortcut();
+    if (command === 'refresh') {
+      await reloadLibrary();
+      render();
+      toast('Artworks imported.', 'good');
+      backfill();
+    }
+  });
+}
 
 init();

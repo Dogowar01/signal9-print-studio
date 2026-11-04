@@ -531,3 +531,27 @@ details.all-settings[open] summary::after { content: "Hide"; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .s9-grain { animation: none; }
 }
+
+/* ── Dialogs ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 20px;
+  background: rgba(10, 9, 8, .78); backdrop-filter: blur(6px); animation: s9-fade .3s ease both;
+}
+.modal {
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 26px 26px 20px;
+  background: var(--off-black); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow), 0 0 60px rgba(142, 69, 133, .16); animation: s9-rise .45s var(--ease) both;
+}
+.modal h3 { font-family: var(--serif); font-style: italic; font-weight: 300; font-size: 28px; line-height: 1.15; color: var(--white); }
+.modal p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.modal input { width: 100%; height: 40px; font-size: 15px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.btn.primary.danger-fill { background: #8f3423; border-color: #8f3423; }
+.btn.primary.danger-fill:hover { background: var(--bad); border-color: var(--bad); box-shadow: 0 0 24px rgba(200, 87, 63, .35); }
+
+/* ── Inside the Mac app: native window buttons sit in the top bar, which drags the window ── */
+.is-app.on-darwin .topbar, .is-app.on-darwin .studio-head { -webkit-app-region: drag; user-select: none; }
+.is-app.on-darwin .topbar { padding-left: 92px; }
+.is-app.on-darwin .studio-head { padding-left: 92px; }
+.is-app.on-darwin .brand { width: 200px; }
+.is-app .topbar :is(input, button, label, a), .is-app .studio-head :is(button, .filmstrip) { -webkit-app-region: no-drag; }

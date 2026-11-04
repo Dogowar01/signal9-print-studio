@@ -30,6 +30,47 @@ export function toast(message, kind = '', ms = 4200) {
   return el;
 }
 
+/**
+ * Signal9-styled replacement for alert/confirm/prompt (the Mac app has no built-in prompt()).
+ * With `input` set, resolves to the entered text or null; otherwise to true/false.
+ */
+export function ask({ title, message = '', input = null, ok = 'OK', cancel = 'Cancel', danger = false }) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <form class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+        <h3>${esc(title)}</h3>
+        ${message ? `<p>${esc(message)}</p>` : ''}
+        ${input !== null ? `<input type="text" value="${esc(input)}" autocomplete="off">` : ''}
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" data-cancel>${esc(cancel)}</button>
+          <button type="submit" class="btn primary ${danger ? 'danger-fill' : ''}">${esc(ok)}</button>
+        </div>
+      </form>`;
+    const form = backdrop.querySelector('form');
+    const field = form.querySelector('input');
+    const finish = (value) => {
+      backdrop.remove();
+      resolve(value);
+    };
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      finish(field ? field.value : true);
+    };
+    form.querySelector('[data-cancel]').onclick = () => finish(field ? null : false);
+    backdrop.onclick = (e) => e.target === backdrop && finish(field ? null : false);
+    // Keep Escape and shortcuts from reaching the screens underneath.
+    form.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') finish(field ? null : false);
+    });
+    document.body.append(backdrop);
+    (field || form.querySelector('[type=submit]')).focus();
+    field?.select();
+  });
+}
+
 export function loadImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();

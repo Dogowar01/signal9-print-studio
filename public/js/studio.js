@@ -1,7 +1,7 @@
 // Print studio: paper, size, layout, smart corrections and every driver setting,
 // with a live preview of the exact page that will be printed.
 
-import { api, $, $$, esc, toast, loadImage, prefs, icons } from './util.js';
+import { api, $, $$, esc, toast, ask, loadImage, prefs, icons } from './util.js';
 import { PAPERS, paperById, driverSettings } from './papers.js';
 import { analyzeImage, recommend, ANALYSIS_VERSION } from './analyze.js';
 import { computeLayout, renderPreview, renderForPrint, mm } from './render.js';
@@ -44,8 +44,8 @@ export async function openStudio(artworks, ctx) {
   await selectItem(0);
 }
 
-function closeStudio() {
-  if (S?.printing && !confirm('Printing is still in progress. Close anyway? Jobs already sent will still print.')) return;
+async function closeStudio() {
+  if (S?.printing && !(await ask({ title: 'Still printing', message: 'Close the print room anyway? Jobs already sent will still print.', ok: 'Close' }))) return;
   $('#studio').hidden = true;
   S = null;
 }
