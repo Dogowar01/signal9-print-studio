@@ -163,7 +163,22 @@ function buildMenu() {
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
     },
-    { role: 'editMenu' },
+    {
+      // Written out (not the stock editMenu) so ⌘A selects artworks rather than page text,
+      // and so removing works has a menu item and shortcut.
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: () => send('selectAll') },
+        { type: 'separator' },
+        { label: 'Remove from Library…', accelerator: 'CmdOrCtrl+Backspace', click: () => send('remove') },
+      ],
+    },
     {
       label: 'View',
       submenu: [

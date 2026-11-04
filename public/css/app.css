@@ -137,6 +137,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 400; }
 .link-btn:hover { color: var(--cream); border-bottom-color: rgba(181, 98, 58, .6); }
 .link-btn.accent { color: var(--sienna-light); }
 .link-btn.accent:hover { color: var(--white); }
+.link-btn.danger { color: #c48a7c; }
+.link-btn.danger:hover { color: var(--bad); border-bottom-color: rgba(200, 87, 63, .6); }
+.link-btn:disabled, .btn:disabled, select:disabled { opacity: .35; cursor: default; pointer-events: none; }
 
 /* ── Form controls: hairlines, not boxes ── */
 select, input[type="text"], input[type="number"], input[type="search"], textarea {
@@ -405,6 +408,8 @@ body:has(.simulated-banner:not([hidden])) .library { height: calc(100% - 64px - 
 }
 .drawer > .art img { max-width: 100%; max-height: 46vh; box-shadow: 0 30px 80px rgba(0, 0, 0, .8); animation: s9-reveal 1s ease both; }
 .drawer > .art .icon-btn { position: absolute; top: 12px; right: 12px; border-color: var(--line); background: rgba(10, 9, 8, .5); }
+.drawer > .art .icon-btn[data-remove] { right: auto; left: 12px; }
+.drawer > .art .icon-btn[data-remove]:hover { color: var(--bad); border-color: rgba(200, 87, 63, .6); }
 .drawer .body { padding: 22px 26px 30px; display: flex; flex-direction: column; gap: 20px; }
 .drawer .plate-line { font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: var(--sienna-light); margin-bottom: -12px; }
 .drawer .title-input {

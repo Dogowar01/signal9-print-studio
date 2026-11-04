@@ -56,6 +56,7 @@
           <option value="printed">Recently printed</option>
         </select>
         <input id="zoom" type="range" min="150" max="380" value="240" aria-label="Thumbnail size">
+        <button class="link-btn" id="selectMode" type="button">Select</button>
         <button class="link-btn accent" id="importBtn" type="button">+ Import works</button>
         <input id="fileInput" type="file" multiple accept="image/*,.tif,.tiff,.heic,.heif,.psd" hidden>
       </div>
@@ -65,9 +66,10 @@
     <div class="selection-bar" id="selectionBar" hidden>
       <span id="selectionCount"></span>
       <button class="link-btn" id="selectAll" type="button">Select all</button>
-      <button class="link-btn" id="clearSelection" type="button">Clear</button>
+      <button class="link-btn" id="clearSelection" type="button">Done</button>
       <div class="spacer"></div>
       <select id="addToCollection" class="quiet" aria-label="Add selection to collection"></select>
+      <button class="link-btn danger" id="removeSelected" type="button" title="Remove from library (⌘⌫)">Remove</button>
       <button class="btn primary" id="printSelected" type="button">Print selected</button>
     </div>
 

@@ -42,7 +42,7 @@ export function ask({ title, message = '', input = null, fields = null, ok = 'OK
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML = `
-      <form class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
         <h3>${esc(title)}</h3>
         ${message ? `<p>${esc(message)}</p>` : ''}
         ${(fields || []).map((f) => `
@@ -53,10 +53,10 @@ export function ask({ title, message = '', input = null, fields = null, ok = 'OK
           </label>`).join('')}
         <div class="modal-actions">
           <button type="button" class="btn ghost" data-cancel>${esc(cancel)}</button>
-          <button type="submit" class="btn outline ${danger ? 'danger' : ''}">${esc(ok)}</button>
+          <button type="button" class="btn outline ${danger ? 'danger' : ''}" data-ok>${esc(ok)}</button>
         </div>
-      </form>`;
-    const form = backdrop.querySelector('form');
+      </div>`;
+    const form = backdrop.querySelector('.modal');
     const inputs = [...form.querySelectorAll('[data-key]')];
     const values = () => Object.fromEntries(inputs.map((el) => [el.dataset.key, el.value]));
     const finish = (value) => {
@@ -64,20 +64,25 @@ export function ask({ title, message = '', input = null, fields = null, ok = 'OK
       resolve(value);
     };
     const cancelValue = fields ? null : false;
-    form.onsubmit = (e) => {
-      e.preventDefault();
+    // Handled directly rather than via form submission, which some hosts block.
+    const confirm = () => {
       if (input !== null) finish(values().value);
       else finish(fields ? values() : true);
     };
+    form.querySelector('[data-ok]').onclick = confirm;
     form.querySelector('[data-cancel]').onclick = () => finish(cancelValue);
     backdrop.onclick = (e) => e.target === backdrop && finish(cancelValue);
     // Keep Escape and shortcuts from reaching the screens underneath.
     form.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Escape') finish(cancelValue);
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+        e.preventDefault();
+        confirm();
+      }
     });
     document.body.append(backdrop);
-    (inputs[0] || form.querySelector('[type=submit]')).focus();
+    (inputs[0] || form.querySelector('[data-ok]')).focus();
     inputs[0]?.select?.();
   });
 }

@@ -19,6 +19,7 @@ const state = {
   app: null,
   processing: new Set(),
   seen: new Set(), // cards already revealed, so re-renders don't replay the entrance
+  selecting: false, // Select mode: clicking a work selects it instead of opening it
 };
 
 // ---------- Startup ----------
@@ -198,7 +199,7 @@ function renderGrid() {
   $('#empty').hidden = state.artworks.length > 0;
 
   const grid = $('#grid');
-  grid.classList.toggle('selecting', state.selected.size > 0);
+  grid.classList.toggle('selecting', isSelecting());
   let order = 0;
   const rows = (arts) => `<div class="rows">${arts.map((a) => cardHtml(a, order++)).join('')}</div>`;
   const works = (n) => `${n} ${n === 1 ? 'work' : 'works'}`;
@@ -254,11 +255,60 @@ function cardHtml(a, index) {
     </article>`;
 }
 
+const isSelecting = () => state.selecting || state.selected.size > 0;
+
 function renderSelection() {
   const n = state.selected.size;
-  $('#selectionBar').hidden = n === 0;
-  $('#selectionCount').textContent = `${n} selected`;
-  $('#printSelected').textContent = n === 1 ? 'Print 1 work' : `Print ${n} works`;
+  $('#selectionBar').hidden = !isSelecting();
+  $('#selectionCount').textContent = n ? `${n} selected` : 'Choose works';
+  $('#printSelected').textContent = n === 1 ? 'Print 1 work' : `Print ${n || ''} works`.replace('  ', ' ');
+  $('#printSelected').disabled = n === 0;
+  $('#removeSelected').disabled = n === 0;
+  $('#addToCollection').disabled = n === 0;
+  $('#selectMode').textContent = isSelecting() ? 'Done' : 'Select';
+}
+
+function exitSelecting() {
+  state.selecting = false;
+  state.selected.clear();
+  renderGrid();
+  renderSelection();
+}
+
+// Removes works from the library. Originals go to the library's trash folder.
+async function removeArtworks(ids) {
+  const arts = ids.map((id) => state.artworks.find((a) => a.id === id)).filter(Boolean);
+  if (!arts.length) return;
+  const one = arts.length === 1;
+  const ok = await ask({
+    title: one ? `Remove “${arts[0].title}”?` : `Remove ${arts.length} works?`,
+    message: `${one ? 'The original file is' : 'The original files are'} moved to the trash folder inside your Signal9 Library, not permanently deleted.`,
+    ok: one ? 'Remove' : `Remove ${arts.length}`,
+    danger: true,
+  });
+  if (!ok) return;
+  let removed = 0;
+  for (const a of arts) {
+    try {
+      await api(`/api/artworks/${a.id}`, { method: 'DELETE' });
+      state.artworks = state.artworks.filter((x) => x.id !== a.id);
+      state.selected.delete(a.id);
+      removed++;
+    } catch (err) {
+      toast(`${a.title}: ${err.message}`, 'bad');
+    }
+  }
+  if (state.drawerId && !state.artworks.some((a) => a.id === state.drawerId)) closeDrawer();
+  if (!state.selected.size) state.selecting = false;
+  render();
+  if (removed) toast(`Moved ${removed === 1 ? '1 work' : `${removed} works`} to the library trash folder.`);
+}
+
+// ⌘⌫ / Delete: remove the selection, or the work whose details are open.
+function removeShortcut() {
+  const ids = state.selected.size ? [...state.selected] : state.drawerId ? [state.drawerId] : [];
+  if (ids.length) removeArtworks(ids);
+  else toast('Select works first: choose Select, then click the works to remove.');
 }
 
 // Ink levels: tiny bars in the printer chip, full bars in the printer popover.
@@ -328,6 +378,7 @@ function renderDrawer() {
   const traits = describe(a.analysis);
   d.innerHTML = `
     <div class="art">${src ? `<img src="${src}" alt="">` : '<span style="color:var(--faint)">No preview</span>'}
+      <button class="icon-btn" data-remove title="Remove from library (⌘⌫)" type="button">${icons.trash}</button>
       <button class="icon-btn" data-close title="Close" type="button">${icons.close}</button></div>
     <div class="body">
       <div class="plate-line">Signal9 Studio · ${plateOf(a)}</div>
@@ -360,6 +411,7 @@ function renderDrawer() {
 
   const patch = (p) => updateArtwork(a.id, p);
   $('[data-close]', d).onclick = closeDrawer;
+  $('[data-remove]', d).onclick = () => removeArtworks([a.id]);
   $('#dTitle', d).onchange = (e) => patch({ title: e.target.value });
   $$('#dRating button', d).forEach((b) => (b.onclick = () => patch({ rating: Number(b.dataset.r) === a.rating ? 0 : Number(b.dataset.r) })));
   $('#dFav', d).onclick = () => patch({ favorite: !a.favorite });
@@ -376,15 +428,7 @@ function renderDrawer() {
   $$('[data-col]', d).forEach((c) => (c.onchange = () => patch({
     collections: c.checked ? [...a.collections, c.dataset.col] : a.collections.filter((x) => x !== c.dataset.col),
   })));
-  $('#dDelete', d).onclick = async () => {
-    if (!(await ask({ title: `Remove “${a.title}”?`, message: 'The original file is moved to the library’s trash folder, not permanently deleted.', ok: 'Remove', danger: true }))) return;
-    await api(`/api/artworks/${a.id}`, { method: 'DELETE' });
-    state.artworks = state.artworks.filter((x) => x.id !== a.id);
-    state.selected.delete(a.id);
-    closeDrawer();
-    render();
-    toast('Moved to the library trash folder.');
-  };
+  $('#dDelete', d).onclick = () => removeArtworks([a.id]);
 }
 
 // Largest size this artwork prints sharply at (240 ppi), and which standard paper that covers.
@@ -575,7 +619,7 @@ $('#grid').addEventListener('click', (e) => {
     const a = state.artworks.find((x) => x.id === id);
     return updateArtwork(id, { favorite: !a.favorite });
   }
-  if (e.target.closest('[data-select]') || e.metaKey || e.ctrlKey || e.shiftKey || state.selected.size) {
+  if (e.target.closest('[data-select]') || e.metaKey || e.ctrlKey || e.shiftKey || isSelecting()) {
     return toggleSelect(id, e.shiftKey);
   }
   openDrawer(id);
@@ -660,11 +704,15 @@ $('#selectAll').onclick = () => {
   renderGrid();
   renderSelection();
 };
-$('#clearSelection').onclick = () => {
-  state.selected.clear();
+$('#clearSelection').onclick = exitSelecting;
+$('#selectMode').onclick = () => {
+  if (isSelecting()) return exitSelecting();
+  state.selecting = true;
+  closeDrawer();
   renderGrid();
   renderSelection();
 };
+$('#removeSelected').onclick = () => removeArtworks([...state.selected]);
 $('#printSelected').onclick = () => startPrint([...state.selected]);
 $('#addToCollection').onchange = async (e) => {
   const v = e.target.value;
@@ -724,17 +772,26 @@ document.addEventListener('keydown', (e) => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
   if (e.key === 'Escape' && $('#studio').hidden) {
     if (state.drawerId) closeDrawer();
-    else if (state.selected.size) $('#clearSelection').click();
+    else if (isSelecting()) exitSelecting();
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !typing && $('#studio').hidden) {
     e.preventDefault();
-    $('#selectAll').click();
+    selectAllWorks();
+  }
+  if ((e.key === 'Delete' || (e.key === 'Backspace' && (e.metaKey || e.ctrlKey))) && !typing && $('#studio').hidden) {
+    e.preventDefault();
+    removeShortcut();
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'p' && $('#studio').hidden) {
     e.preventDefault();
     printShortcut();
   }
 });
+
+function selectAllWorks() {
+  state.selecting = true;
+  $('#selectAll').click();
+}
 
 // ⌘P: print the selection, or the artwork whose details are open.
 function printShortcut() {
@@ -749,7 +806,14 @@ if (window.signal9App) {
   document.documentElement.classList.add('is-app', `on-${window.signal9App.platform}`);
   window.signal9App.onUpdate((info) => showUpdate(info, () => window.signal9App.installUpdate()));
   window.signal9App.onMenu(async (command) => {
+    const typing = /INPUT|TEXTAREA/.test(document.activeElement?.tagName);
     if (command === 'print' && $('#studio').hidden) printShortcut();
+    if (command === 'remove' && $('#studio').hidden && !typing) removeShortcut();
+    // ⌘A selects text while typing, otherwise every work in view.
+    if (command === 'selectAll') {
+      if (typing || !$('#studio').hidden) document.execCommand('selectAll');
+      else selectAllWorks();
+    }
     if (command === 'refresh') {
       await reloadLibrary();
       render();
