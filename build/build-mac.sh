@@ -79,6 +79,13 @@ mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 DMG="$OUT/Signal9-Print-Studio-$VERSION-arm64.dmg"
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+# hdiutil sometimes reports "Resource busy" while macOS is still scanning the
+# freshly written files, so give it a few tries.
+for attempt in 1 2 3 4 5; do
+  if hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null; then break; fi
+  if [ "$attempt" = 5 ]; then echo "hdiutil failed 5 times" >&2; exit 1; fi
+  echo "  disk image busy, retrying ($attempt)…"
+  sleep $((attempt * 5))
+done
 
 echo "✓ Built $DMG"
