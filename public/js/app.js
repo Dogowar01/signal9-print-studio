@@ -6,6 +6,7 @@ import { openStudio } from './studio.js';
 import { showUpdate } from './update-ui.js';
 import { applyBrandTextures, renderHeroMosaic, revealCard } from './mosaic.js';
 import { openDuplicates } from './duplicates.js';
+import { STYLE_VERSION, styleSignature, groupByStyle, subjectGroup, subjectWords, rankSimilar } from './similar.js';
 
 applyBrandTextures();
 
@@ -24,6 +25,7 @@ const state = {
   processing: new Set(),
   seen: new Set(), // cards already revealed, so re-renders don't replay the entrance
   selecting: false, // Select mode: clicking a work selects it instead of opening it
+  similar: { id: null, content: {} }, // content similarity from the server, for the work last asked about
 };
 
 // ---------- Startup ----------
@@ -42,8 +44,34 @@ async function init() {
   $('#simBanner').hidden = !state.app.mock;
   render();
   backfill();
+  watchRecognition();
   await loadPrinters();
   setInterval(() => document.visibilityState === 'visible' && refreshPrinterStatus(), 10000);
+}
+
+// While the Mac is recognising what's in new works, refresh as results come in.
+let watching = false;
+async function watchRecognition() {
+  if (watching) return;
+  watching = true;
+  try {
+    let last = -1;
+    for (;;) {
+      const status = await api('/api/status').catch(() => null);
+      if (!status) break;
+      state.app.vision = status.vision;
+      const pending = status.vision?.pending || 0;
+      if (pending !== last && last !== -1) {
+        await reloadLibrary();
+        render();
+      }
+      last = pending;
+      if (!pending) break;
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  } finally {
+    watching = false;
+  }
 }
 
 async function reloadLibrary() {
@@ -102,6 +130,7 @@ export function setPrinter(name) {
 
 function visibleArtworks() {
   const q = state.search.trim().toLowerCase();
+  if (state.view.type === 'similar') return similarList(q);
   let list = state.artworks.filter((a) => {
     const v = state.view;
     if (v.type === 'favorites' && !a.favorite) return false;
@@ -109,7 +138,7 @@ function visibleArtworks() {
     if (v.type === 'unprinted' && a.lastPrintedAt) return false;
     if (v.type === 'collection' && !a.collections.includes(v.id)) return false;
     if (v.type === 'tag' && !a.tags.includes(v.tag)) return false;
-    if (q && !`${a.title} ${a.tags.join(' ')} ${a.notes} ${a.originalName}`.toLowerCase().includes(q)) return false;
+    if (q && !searchText(a).includes(q)) return false;
     return true;
   });
   const by = {
@@ -120,6 +149,35 @@ function visibleArtworks() {
     printed: (a, b) => (b.lastPrintedAt || '').localeCompare(a.lastPrintedAt || ''),
   }[state.sort];
   return list.sort(by);
+}
+
+// What search looks through: the work's own words plus what's recognised in it.
+function searchText(a) {
+  const subject = a.vision ? subjectGroup(a.vision).name : '';
+  return `${a.title} ${a.tags.join(' ')} ${a.notes} ${a.originalName} ${subjectWords(a.vision, 0.3).join(' ')} ${subject}`.toLowerCase();
+}
+
+// "More like this": the chosen work first, then the closest matches.
+const SIMILAR_LIMIT = 36;
+function similarList(q) {
+  const target = state.artworks.find((a) => a.id === state.view.id);
+  if (!target) return [];
+  const content = state.similar.id === target.id ? state.similar.content : {};
+  return [target, ...rankSimilar(target, state.artworks, content, state.view.mode || 'both')
+    .map((x) => x.art)
+    .filter((a) => !q || searchText(a).includes(q))
+    .slice(0, SIMILAR_LIMIT)];
+}
+
+async function loadSimilar(id) {
+  if (state.similar.id === id) return state.similar.content;
+  try {
+    const r = await api(`/api/artworks/${id}/similar`);
+    state.similar = { id, content: r.content || {} };
+  } catch {
+    state.similar = { id, content: {} };
+  }
+  return state.similar.content;
 }
 
 // Heading for the current view, set like the website: an upright word, then italics.
@@ -137,6 +195,14 @@ function viewHeading() {
     printed: { eyebrow: 'In print', up: 'Printed', em: 'Works' },
     unprinted: { eyebrow: 'Awaiting paper', up: 'Not yet', em: 'Printed' },
     tag: { eyebrow: 'Tagged', up: `#${v.tag}`, em: '' },
+    style: { eyebrow: 'Grouped by look', up: 'By', em: 'Style', lede: 'Palette, light and dark, contrast and detail, measured from each work.' },
+    subject: {
+      eyebrow: 'Grouped by what’s in them', up: 'By', em: 'Subject',
+      lede: state.app?.vision?.available
+        ? 'Recognised on this Mac with Apple’s built-in image recognition. Nothing leaves your computer.'
+        : 'Subjects are recognised by the Signal9 Print Studio Mac app, using macOS’s built-in image recognition.',
+    },
+    similar: { eyebrow: 'More like', up: 'Like', em: state.artworks.find((x) => x.id === v.id)?.title || 'this', similar: true },
   }[v.type];
 }
 
@@ -160,6 +226,9 @@ function renderFilters() {
     ${link('data-view="favorites"', 'Favourites', v.type === 'favorites', favs)}
     ${link('data-view="printed"', 'Printed', v.type === 'printed')}
     ${link('data-view="unprinted"', 'Not yet printed', v.type === 'unprinted')}
+    <span class="filter-label gap">Group by →</span>
+    ${link('data-view="style"', 'Style', v.type === 'style')}
+    ${link('data-view="subject"', 'Subject', v.type === 'subject')}
     <span class="filter-label gap">Collections →</span>
     ${state.collections.map((c) => link(`data-collection="${c.id}"`, c.name, v.type === 'collection' && v.id === c.id)).join('')}
     <button class="filter add" id="newCollection" type="button" title="New collection">+ New</button>`;
@@ -195,9 +264,13 @@ function renderGrid() {
   $('#viewTitle').innerHTML = `<span class="up">${esc(h.up)}</span>${h.em ? ` <em>${esc(h.em)}</em>` : ''}`;
   $('#viewLede').hidden = !h.lede;
   $('#viewLede').textContent = h.lede || '';
+  const mode = state.view.mode || 'both';
+  const modeBtn = (m, label) => `<button class="filter ${mode === m ? 'on' : ''}" data-similar-mode="${m}" type="button">${label}</button>`;
   $('#heroActions').innerHTML = h.collection
     ? `<button class="link-btn" data-edit-collection="${h.collection.id}" type="button">Edit collection</button>`
-    : '';
+    : h.similar && state.app?.vision?.available
+      ? `<span class="filter-label">Match →</span>${modeBtn('both', 'Look & subject')}${modeBtn('style', 'Look only')}${modeBtn('subject', 'Subject only')}`
+      : '';
   $('#viewCount').textContent = String(list.length).padStart(2, '0');
   $('#viewCountLabel').textContent = list.length === 1 ? 'Work' : 'Works';
   $('#empty').hidden = state.artworks.length > 0;
@@ -212,8 +285,55 @@ function renderGrid() {
   const rows = (arts) => `<div class="rows">${arts.map((a) => cardHtml(a, order++)).join('')}</div>`;
   const works = (n) => `${n} ${n === 1 ? 'work' : 'works'}`;
 
+  const chapters = (groups) => groups.map((g, i) => `
+      <section class="chapter" data-num="${String(i + 1).padStart(2, '0')}">
+        <header class="chapter-head">
+          <div><h2>${esc(g.name)}</h2>${g.blurb ? `<p>${esc(g.blurb)}</p>` : ''}</div>
+          <span class="chapter-count">${works(g.arts.length)}</span>
+        </header>
+        ${rows(g.arts)}
+      </section>`).join('');
+
+  if (state.view.type === 'style' || state.view.type === 'subject') {
+    const bySubject = state.view.type === 'subject';
+    let groups = new Map();
+    if (bySubject) {
+      for (const a of list) {
+        const g = subjectGroup(a.vision);
+        if (!groups.has(g.key)) groups.set(g.key, { ...g, arts: [] });
+        groups.get(g.key).arts.push(a);
+      }
+    } else {
+      groups = new Map(groupByStyle(list).map((g) => [g.key, g]));
+    }
+    // Biggest groups first; works still waiting to be measured go last.
+    const waitingLast = (g) => (g.sort >= 98 ? 1 : 0);
+    const ordered = [...groups.values()].sort((a, b) => waitingLast(a) - waitingLast(b) || b.arts.length - a.arts.length || a.sort - b.sort);
+    const vision = state.app?.vision;
+    if (bySubject && !vision?.available) {
+      grid.innerHTML = '<p class="quiet-note group-note">Grouping by subject uses macOS’s built-in image recognition, so it works in the Signal9 Print Studio Mac app. <b>Style</b> grouping works everywhere.</p>';
+    } else {
+      const waiting = bySubject && vision.pending
+        ? `<p class="quiet-note group-note">Recognising ${vision.pending} more work${vision.pending === 1 ? '' : 's'}…</p>` : '';
+      grid.innerHTML = waiting + (list.length ? chapters(ordered) : '');
+    }
+  } else if (state.view.type === 'similar') {
+    const [target, ...rest] = list;
+    const how = state.view.mode === 'style' || !state.app?.vision?.available ? 'Ranked by palette, tone, contrast and detail.'
+      : state.view.mode === 'subject' ? 'Ranked by what’s in the picture.'
+        : 'Ranked by what’s in the picture and how it looks.';
+    grid.innerHTML = target ? `
+      <section class="chapter similar-chapter">
+        <header class="chapter-head"><div><h2>Chosen work</h2></div></header>
+        ${rows([target])}
+      </section>
+      <section class="chapter">
+        <header class="chapter-head"><div><h2>Closest first</h2><p>${how}</p></div>
+          <span class="chapter-count">${works(rest.length)}</span></header>
+        ${rows(rest)}
+      </section>` : '<p class="quiet-note">That work is no longer in the library.</p>';
   // The full library reads like the website's All Works page: one chapter per collection.
-  if (state.view.type === 'all' && !state.search.trim() && state.collections.length) {
+  } else if (state.view.type === 'all' && !state.search.trim() && state.collections.length) {
     const sections = state.collections
       .map((c, i) => ({ c, i, arts: list.filter((a) => a.collections.includes(c.id)) }))
       .filter((x) => x.arts.length);
@@ -400,6 +520,10 @@ function renderDrawer() {
       </div>
       <button class="btn primary big" id="dPrint" type="button" ${a.display ? '' : 'disabled'}>${icons.printer} Print this artwork</button>
       ${traits.length ? `<div class="field"><span class="label">Image character</span><div class="badges">${traits.map((t) => `<span class="badge">${esc(t)}</span>`).join('')}</div></div>` : ''}
+      ${subjectHtml(a)}
+      <div class="field like-field"><span class="label">More like this</span>
+        <div class="like-strip" id="dLike"></div>
+        <button class="link-btn" id="dLikeAll" type="button">Show all similar works →</button></div>
       <div class="field"><label for="dTagInput">Tags</label>
         <div class="tags-input">${a.tags.map((t) => `<span class="chip">#${esc(t)}<button type="button" data-untag="${esc(t)}" title="Remove">×</button></span>`).join('')}
           <input id="dTagInput" type="text" placeholder="Add tag, press Enter"></div></div>
@@ -438,6 +562,46 @@ function renderDrawer() {
     collections: c.checked ? [...a.collections, c.dataset.col] : a.collections.filter((x) => x !== c.dataset.col),
   })));
   $('#dDelete', d).onclick = () => removeArtworks([a.id]);
+  $$('[data-subject]', d).forEach((b) => (b.onclick = () => searchFor(b.dataset.subject)));
+  $('#dLikeAll', d).onclick = () => showSimilar(a.id);
+  fillLikeStrip(a);
+}
+
+// Recognised subject words, each one a search.
+function subjectHtml(a) {
+  const words = subjectWords(a.vision);
+  if (!words.length) return '';
+  return `<div class="field"><span class="label">Recognised</span><div class="badges">${words.map((w) =>
+    `<button class="badge subject" data-subject="${esc(w)}" type="button" title="Find works with ${esc(w)}">${esc(w)}</button>`).join('')}</div></div>`;
+}
+
+function searchFor(text) {
+  $('#search').value = text;
+  state.search = text;
+  closeDrawer();
+  showView({ type: 'all' });
+}
+
+// The six closest works, under the details.
+async function fillLikeStrip(a) {
+  const strip = $('#dLike');
+  if (!strip || state.artworks.length < 2) return $('.like-field')?.remove();
+  const content = await loadSimilar(a.id);
+  if (state.drawerId !== a.id || !$('#dLike')) return;
+  const ranked = rankSimilar(a, state.artworks, content).slice(0, 6);
+  if (!ranked.length) {
+    $('#dLike').innerHTML = '<span class="quiet-note">Still measuring the library…</span>';
+    return;
+  }
+  $('#dLike').innerHTML = ranked.map(({ art }) => art.thumb
+    ? `<button class="like" data-like="${art.id}" type="button" title="${esc(art.title)}"><img src="/files/thumbs/${art.thumb}" alt="${esc(art.title)}" draggable="false"></button>` : '').join('');
+  $$('[data-like]', $('#dLike')).forEach((b) => (b.onclick = () => openDrawer(b.dataset.like)));
+}
+
+async function showSimilar(id) {
+  await loadSimilar(id);
+  closeDrawer();
+  showView({ type: 'similar', id, mode: state.view.type === 'similar' ? state.view.mode : 'both' });
 }
 
 // Largest size this artwork prints sharply at (240 ppi), and which standard paper that covers.
@@ -493,6 +657,7 @@ async function importFiles(files) {
   await Promise.all([worker(), worker()]);
   note.remove();
   const added = done - failed - skipped;
+  if (added) watchRecognition();
   const skipNote = skipped ? ` Skipped ${skipped} already in the library.` : '';
   toast(`Imported ${added} artwork${added === 1 ? '' : 's'}.${skipNote}`, failed ? 'bad' : 'good');
 }
@@ -517,7 +682,8 @@ async function processArtwork(art) {
     const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.86));
     await api(`/api/artworks/${art.id}/thumb`, { method: 'PUT', body: blob, headers: { 'Content-Type': 'image/jpeg' } });
     const analysis = analyzeImage(img, w, h);
-    const updated = await api(`/api/artworks/${art.id}`, { method: 'PATCH', json: { width: w, height: h, analysis } });
+    const style = styleSignature(c);
+    const updated = await api(`/api/artworks/${art.id}`, { method: 'PATCH', json: { width: w, height: h, analysis, style } });
     const i = state.artworks.findIndex((a) => a.id === art.id);
     if (i !== -1) state.artworks[i] = updated;
   } catch (err) {
@@ -533,6 +699,19 @@ async function backfill() {
   for (const a of state.artworks) {
     if (a.display && (!a.thumb || !a.analysis || a.analysis.v !== ANALYSIS_VERSION)) await processArtwork(a);
   }
+  // Works from before style grouping only need their look measured, from the thumbnail.
+  let measured = 0;
+  for (const a of [...state.artworks]) {
+    if (!a.thumb || a.style?.v === STYLE_VERSION) continue;
+    try {
+      const img = await loadImage(`/files/thumbs/${a.thumb}`);
+      const updated = await api(`/api/artworks/${a.id}`, { method: 'PATCH', json: { style: styleSignature(img) } });
+      const i = state.artworks.findIndex((x) => x.id === a.id);
+      if (i !== -1) state.artworks[i] = updated;
+      if (++measured % 20 === 0 && state.view.type === 'style') renderGrid();
+    } catch { /* tried again next launch */ }
+  }
+  if (measured && (state.view.type === 'style' || state.view.type === 'similar')) renderGrid();
 }
 
 // ---------- Collections ----------
@@ -689,6 +868,11 @@ $('#filters').addEventListener('click', (e) => {
 $('#heroActions').addEventListener('click', (e) => {
   const b = e.target.closest('[data-edit-collection]');
   if (b) editCollection(b.dataset.editCollection);
+  const m = e.target.closest('[data-similar-mode]');
+  if (m) {
+    state.view = { ...state.view, mode: m.dataset.similarMode };
+    render();
+  }
 });
 $('#tagRow').addEventListener('click', (e) => {
   const chip = e.target.closest('[data-tag]');

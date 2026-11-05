@@ -15,6 +15,12 @@ Everything runs on your own computer. Your artworks never leave your Mac.
   *Edit → Find Duplicates…*) finds works that are in more than once, including the same picture saved at
   another size or format, keeps the best copy and moves its tags, collections, ratings and print history
   onto it. Removed copies go to the library's trash folder.
+- **Find like images:** *Group by → Style* gathers works by look (palette, light or dark, contrast,
+  detail), and *Group by → Subject* by what's in them (cities, flowers, people, sky…). Every work's
+  details show what was recognised in it and **More like this**: its closest matches, with
+  *Show all similar works* to rank the whole library by look, subject or both. Search also finds works by
+  what's in them, so "sunflower" or "skyline" works without tagging anything. Subjects are recognised by
+  macOS's built-in image recognition (Apple's Vision framework), on the Mac itself; nothing is uploaded.
 - **Print studio:** pick paper type, paper size, borderless, layout (fit, fill/crop or an exact
   width), margin and copies. Print one artwork or a whole selection in one go.
 - **Smart analysis:** each artwork is measured for resolution, tonal range, shadow and highlight
@@ -127,6 +133,10 @@ npm run build:mac  # build dist/Signal9-Print-Studio-<version>-arm64.dmg (macOS 
 ```
 
 On a computer without CUPS (such as Windows), the simulated printer is used automatically.
+
+Subject recognition uses a small Swift helper (`vision/Signal9Vision.swift`) that the Mac build compiles,
+self-tests and bundles. To use it when running from source on a Mac, run `npm run build:vision` once.
+Elsewhere, grouping by style and "More like this" by look still work.
 
 **Releasing a new version:**
 1. Bump `version` in `package.json` and commit.

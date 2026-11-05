@@ -13,7 +13,7 @@ const run = promisify(execFile);
 const BROWSER_SAFE = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
 // Formats macOS can convert with the built-in `sips` tool.
 const CONVERTIBLE = new Set(['.tif', '.tiff', '.heic', '.heif', '.psd', '.bmp', '.jp2', '.dng', '.cr2', '.nef', '.arw']);
-const EDITABLE = ['title', 'tags', 'rating', 'favorite', 'collections', 'notes', 'width', 'height', 'analysis', 'paperId'];
+const EDITABLE = ['title', 'tags', 'rating', 'favorite', 'collections', 'notes', 'width', 'height', 'analysis', 'paperId', 'style'];
 const HISTORY_LIMIT = 1000;
 
 export class Library {

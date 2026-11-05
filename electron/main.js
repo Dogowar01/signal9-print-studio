@@ -30,7 +30,12 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     try {
       // A fixed port keeps per-window preferences (last paper, sort order) between launches.
-      server = await startServer({ ports: [4747, 4748, 4749], libraryDir: process.env.SIGNAL9_LIBRARY || undefined });
+      server = await startServer({
+        ports: [4747, 4748, 4749],
+        libraryDir: process.env.SIGNAL9_LIBRARY || undefined,
+        // The image-recognition helper is built with the app and sits in its Resources folder.
+        visionHelper: app.isPackaged ? [path.join(process.resourcesPath, 'signal9-vision')] : undefined,
+      });
     } catch (err) {
       dialog.showErrorBox('Signal9 Print Studio could not start', err.message);
       app.quit();

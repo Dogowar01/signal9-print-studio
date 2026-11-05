@@ -25,6 +25,12 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$OUT/icon.icns"
 
+echo "▸ Building the image-recognition helper"
+swiftc -O -target arm64-apple-macos13.0 vision/Signal9Vision.swift -o "$OUT/signal9-vision"
+# Check it really recognises something before it ships.
+SAMPLE=$(find "/System/Library/Desktop Pictures" /Library/Desktop\ Pictures -maxdepth 2 \( -name '*.heic' -o -name '*.jpg' -o -name '*.png' \) 2>/dev/null | head -1 || true)
+"$OUT/signal9-vision" build/icon.png ${SAMPLE:+"$SAMPLE"} | node build/check-vision.cjs
+
 echo "▸ Packaging the app"
 npx electron-packager . "$APP_NAME" \
   --platform=darwin --arch=arm64 \
@@ -33,7 +39,8 @@ npx electron-packager . "$APP_NAME" \
   --app-bundle-id=studio.signal9.printstudio \
   --app-version="$VERSION" \
   --app-category-type=public.app-category.photography \
-  --ignore='^/(dist|build|test|\.github|\.claude)(/|$)' \
+  --extra-resource="$OUT/signal9-vision" \
+  --ignore='^/(dist|build|test|vision|\.github|\.claude)(/|$)' \
   --ignore='^/start\.command$'
 
 APP="$OUT/$APP_NAME-darwin-arm64/$APP_NAME.app"

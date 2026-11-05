@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Library } from './server/library.js';
 import { createPrinting, httpError } from './server/printing.js';
 import { buildImagePdf } from './server/pdf.js';
+import { Vision } from './server/vision.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const VERSION = JSON.parse(await readFile(path.join(here, 'package.json'), 'utf8')).version;
@@ -88,14 +89,22 @@ async function sendFile(req, res, file, cache = 'no-cache') {
  * Starts the server. Tries each port in `ports` and falls back to any free port.
  * Resolves with { url, port, libraryDir, library, mock, close }.
  */
-export async function startServer({ ports = [4321], libraryDir = DEFAULT_LIBRARY, mock = process.env.SIGNAL9_MOCK === '1' || !hasCups() } = {}) {
+export async function startServer({
+  ports = [4321],
+  libraryDir = DEFAULT_LIBRARY,
+  mock = process.env.SIGNAL9_MOCK === '1' || !hasCups(),
+  // The Mac app passes the helper bundled in its Resources; from source, `npm run build:vision` makes one.
+  visionHelper = process.env.SIGNAL9_VISION ? [process.env.SIGNAL9_VISION] : process.platform === 'darwin' ? [path.join(here, 'vision', 'signal9-vision')] : null,
+} = {}) {
   const library = new Library(libraryDir);
   const printing = createPrinting({ mock, outboxDir: path.join(libraryDir, 'simulated-prints') });
   await library.init();
+  const vision = new Vision(library, visionHelper);
+  await vision.init();
 
   const routes = [
     ['GET', /^\/api\/status$/, async () => ({
-      mock, libraryDir, platform: process.platform, version: VERSION,
+      mock, libraryDir, platform: process.platform, version: VERSION, vision: vision.status(),
     })],
 
     ['GET', /^\/api\/library$/, async () => library.snapshot()],
@@ -104,7 +113,14 @@ export async function startServer({ ports = [4321], libraryDir = DEFAULT_LIBRARY
       const name = decodeURIComponent(req.headers['x-filename'] || 'artwork.jpg');
       const buffer = await readBody(req);
       if (!buffer.length) throw httpError(400, 'Empty file.');
-      return library.addArtwork({ originalName: path.basename(name), buffer, mime: req.headers['content-type'] || '' });
+      const art = await library.addArtwork({ originalName: path.basename(name), buffer, mime: req.headers['content-type'] || '' });
+      if (!art.alreadyInLibrary) vision.scan();
+      return art;
+    }],
+
+    ['GET', /^\/api\/artworks\/([\w-]+)\/similar$/, async (req, [id]) => {
+      library.find(id);
+      return { available: vision.available, content: vision.similarTo(id) };
     }],
 
     ['PATCH', /^\/api\/artworks\/([\w-]+)$/, async (req, [id]) => library.update(id, await readJson(req))],
