@@ -25,7 +25,7 @@ export class Library {
   }
 
   async init() {
-    for (const sub of ['originals', 'display', 'thumbs', 'trash']) {
+    for (const sub of ['originals', 'display', 'thumbs', 'upscaled', 'trash']) {
       await mkdir(path.join(this.dir, sub), { recursive: true });
     }
     try {
@@ -53,7 +53,7 @@ export class Library {
   }
 
   fileFor(kind, name) {
-    if (!['originals', 'display', 'thumbs'].includes(kind) || !/^[\w-]+\.[\w]+$/.test(name)) return null;
+    if (!['originals', 'display', 'thumbs', 'upscaled'].includes(kind) || !/^[\w-]+\.[\w]+$/.test(name)) return null;
     // Browser-friendly originals are viewed directly rather than copied.
     if (kind === 'display' && this.data.artworks.some((a) => a.display === name && a.original === name)) kind = 'originals';
     return path.join(this.dir, kind, name);
@@ -153,7 +153,7 @@ export class Library {
     const trashDir = path.join(this.dir, 'trash');
     await rename(path.join(this.dir, 'originals', art.original), path.join(trashDir, `${art.original}`)).catch(() => {});
     await writeFile(path.join(trashDir, `${id}.json`), JSON.stringify(art, null, 2));
-    for (const [kind, file] of [['display', art.display], ['thumbs', art.thumb]]) {
+    for (const [kind, file] of [['display', art.display], ['thumbs', art.thumb], ['upscaled', art.upscaled?.file]]) {
       if (file && file !== art.original) await unlink(path.join(this.dir, kind, file)).catch(() => {});
     }
     this.data.artworks = this.data.artworks.filter((a) => a.id !== id);

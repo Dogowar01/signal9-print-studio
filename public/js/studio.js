@@ -5,6 +5,7 @@ import { api, $, $$, esc, toast, ask, loadImage, prefs, icons } from './util.js'
 import { PAPERS, paperById, driverSettings } from './papers.js';
 import { analyzeImage, recommend, ANALYSIS_VERSION } from './analyze.js';
 import { computeLayout, renderPreview, renderForPrint, mm } from './render.js';
+import { printSource, recommendedScale } from './upscale.js';
 
 const SLIDERS = [
   { key: 'brightness', label: 'Brightness', min: -0.2, max: 0.25, step: 0.01, hint: 'Prints look darker than a backlit screen.' },
@@ -80,7 +81,7 @@ async function selectItem(i) {
   if (!item.img) {
     $('#stageInfo').textContent = 'Loading artwork…';
     try {
-      item.img = await loadImage(`/files/display/${item.art.display}`);
+      item.img = await loadImage(printSource(item.art));
     } catch (err) {
       $('#stageInfo').textContent = err.message;
       return;
@@ -185,7 +186,7 @@ async function drawPreview() {
   const inch = (pt) => (pt / 72).toFixed(1);
   $('#stageInfo').innerHTML = `<span class="art-title">${esc(item.art.title)}</span> &nbsp;·&nbsp; ${esc(p.pageSize.label)} ·
     image ${cm(rect.width)} × ${cm(rect.height)} cm (${inch(rect.width)} × ${inch(rect.height)} in) ·
-    <b>${Math.round(p.layout.ppi)} ppi</b>${p.layout.rotate ? ' · rotated to fit' : ''}${S.mode === 'paper' ? ' · simulating ' + esc(p.paper.short) : ''}`;
+    <b>${Math.round(p.layout.ppi)} ppi</b>${item.art.upscaled ? ` · upscaled ${item.art.upscaled.scale}×` : ''}${p.layout.rotate ? ' · rotated to fit' : ''}${S.mode === 'paper' ? ' · simulating ' + esc(p.paper.short) : ''}`;
 }
 
 // ---------- Rendering: settings panel ----------
@@ -234,7 +235,7 @@ function renderPanel() {
       </div>
     </section>
 
-    ${p ? analysisSection(p) : `<section><h3>${icons.sparkle} Smart analysis</h3><div class="hint">${item.img ? 'Waiting for printer settings…' : 'Analysing artwork…'}</div></section>`}
+    ${p ? analysisSection(p, item) : `<section><h3>${icons.sparkle} Smart analysis</h3><div class="hint">${item.img ? 'Waiting for printer settings…' : 'Analysing artwork…'}</div></section>`}
     ${p ? adjustSection(p, item) : ''}
     ${p ? driverSection(p) : ''}
 
@@ -249,14 +250,53 @@ function renderPanel() {
   bindPanel();
 }
 
-function analysisSection(p) {
+function analysisSection(p, item) {
   const { rec } = p;
   return `
     <section>
       <h3>${icons.sparkle} Smart analysis <span class="badge auto">${esc(p.paper.short)}</span></h3>
       <ul class="notes">${rec.notes.map((n) => `<li class="${n.level}">${esc(n.text)}</li>`).join('')}</ul>
+      ${upscaleOffer(p, item)}
       <div class="hint">Chosen for you: <b>${esc(cap(rec.quality))}</b> quality, <b>${rec.monochrome ? 'grayscale' : 'colour'}</b>, and the tone/colour corrections below.</div>
     </section>`;
+}
+
+// Low resolution at this size: offer AI upscaling (Mac app only).
+function upscaleOffer(p, item) {
+  if (!S.ctx.upscaleAvailable || item.art.upscaled || p.layout.ppi >= 200) return '';
+  if (item.upscaling != null) {
+    return `<div class="up-offer"><div class="up-bar"><i style="width:${Math.round(item.upscaling * 100)}%"></i></div>
+      <span class="hint">Upscaling ${recommendedScale(item.art)}×… ${Math.round(item.upscaling * 100)}%</span></div>`;
+  }
+  return `<div class="up-offer"><button class="btn outline" id="pUpscale" type="button">Upscale this work ${recommendedScale(item.art)}× for print</button>
+    <span class="hint">AI upscaling on this Mac adds real detail. Your original isn’t changed.</span></div>`;
+}
+
+async function upscaleItem(i) {
+  const item = S.items[i];
+  item.upscaling = 0;
+  renderPanel();
+  try {
+    const updated = await S.ctx.upscale(item.art, (pr) => {
+      if (!S || S.items[i] !== item) return;
+      item.upscaling = pr;
+      const bar = $('.up-offer .up-bar i'), hint = $('.up-offer .hint');
+      if (S.index === i && bar) {
+        bar.style.width = `${Math.round(pr * 100)}%`;
+        hint.textContent = `Upscaling ${recommendedScale(item.art)}×… ${Math.round(pr * 100)}%`;
+      }
+    });
+    if (!S || S.items[i] !== item) return;
+    item.art = updated;
+    item.img = null;
+    item.upscaling = null;
+    renderFilmstrip();
+    if (S.index === i) await selectItem(i);
+  } catch (err) {
+    item.upscaling = null;
+    if (S) renderPanel();
+    toast(`${item.art.title}: ${err.message}`, 'bad', 8000);
+  }
 }
 
 function adjustSection(p, item) {
@@ -310,6 +350,8 @@ function driverSection(p) {
 }
 
 function bindPanel() {
+  const up = $('#pUpscale');
+  if (up) up.onclick = () => upscaleItem(S.index);
   const panel = $('#panel');
   const on = (sel, ev, fn) => {
     const el = $(sel, panel);
@@ -418,7 +460,7 @@ async function printItems(indexes) {
     item.status = 'busy';
     renderFilmstrip();
     try {
-      if (!item.img) item.img = await loadImage(`/files/display/${item.art.display}`);
+      if (!item.img) item.img = await loadImage(printSource(item.art));
       if (item.analysis?.v !== ANALYSIS_VERSION) item.analysis = analyzeImage(item.img, item.img.naturalWidth, item.img.naturalHeight);
       const p = plan(item);
       if (!p) throw new Error('Printer settings are not ready.');

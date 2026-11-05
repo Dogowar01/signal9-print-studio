@@ -6,6 +6,7 @@ import { openStudio } from './studio.js';
 import { showUpdate } from './update-ui.js';
 import { applyBrandTextures, renderHeroMosaic, revealCard } from './mosaic.js';
 import { openDuplicates } from './duplicates.js';
+import { printPixels, sharpSize, needsUpscale, recommendedScale, defaultModel, MODEL_LABELS, runUpscale, followUpscale, isUpscaling } from './upscale.js';
 import { STYLE_VERSION, styleSignature, groupByStyle, subjectGroup, subjectWords, rankSimilar } from './similar.js';
 
 applyBrandTextures();
@@ -45,6 +46,7 @@ async function init() {
   render();
   backfill();
   watchRecognition();
+  resumeUpscales();
   await loadPrinters();
   setInterval(() => document.visibilityState === 'visible' && refreshPrinterStatus(), 10000);
 }
@@ -519,6 +521,7 @@ function renderDrawer() {
         <button class="btn ghost fav-toggle ${a.favorite ? 'on' : ''}" id="dFav" type="button">${icons.heart} ${a.favorite ? 'Favourite' : 'Add to favourites'}</button>
       </div>
       <button class="btn primary big" id="dPrint" type="button" ${a.display ? '' : 'disabled'}>${icons.printer} Print this artwork</button>
+      ${upscaleHtml(a)}
       ${traits.length ? `<div class="field"><span class="label">Image character</span><div class="badges">${traits.map((t) => `<span class="badge">${esc(t)}</span>`).join('')}</div></div>` : ''}
       ${subjectHtml(a)}
       <div class="field like-field"><span class="label">More like this</span>
@@ -534,6 +537,7 @@ function renderDrawer() {
         <dl class="facts">
           <dt>File</dt><dd>${esc(a.originalName)}</dd>
           <dt>Pixels</dt><dd>${a.width ? `${a.width} × ${a.height}` : '–'}</dd>
+          ${a.upscaled ? `<dt>Upscaled</dt><dd>${a.upscaled.scale}× · ${a.upscaled.width} × ${a.upscaled.height}</dd>` : ''}
           <dt>Best size</dt><dd>${a.width ? bestSize(a) : '–'}</dd>
           <dt>File size</dt><dd>${formatBytes(a.size)}</dd>
           <dt>Added</dt><dd>${new Date(a.addedAt).toLocaleString()}</dd>
@@ -564,6 +568,7 @@ function renderDrawer() {
   $('#dDelete', d).onclick = () => removeArtworks([a.id]);
   $$('[data-subject]', d).forEach((b) => (b.onclick = () => searchFor(b.dataset.subject)));
   $('#dLikeAll', d).onclick = () => showSimilar(a.id);
+  bindUpscale(a);
   fillLikeStrip(a);
 }
 
@@ -606,12 +611,128 @@ async function showSimilar(id) {
 
 // Largest size this artwork prints sharply at (240 ppi), and which standard paper that covers.
 function bestSize(a) {
-  const longIn = Math.max(a.width, a.height) / 240;
-  const shortIn = Math.min(a.width, a.height) / 240;
-  const sizes = [['A4 / Letter', 11.0, 8.0], ['8 × 10 in', 10, 8], ['A5 / 5 × 7 in', 7, 5], ['10 × 15 cm', 6, 4]];
-  const fit = sizes.find(([, l, s]) => longIn >= l && shortIn >= s);
-  const cm = (i) => (i * 2.54).toFixed(0);
-  return `${cm(shortIn)} × ${cm(longIn)} cm at 240 ppi${fit ? ` (sharp up to ${fit[0]})` : ' (best for small prints)'}`;
+  const { w, h } = printPixels(a);
+  const s = sharpSize(w, h);
+  return `${s.text} at 240 ppi${s.paper ? ` (sharp up to ${s.paper})` : ' (best for small prints)'}${a.upscaled ? ', from the upscaled copy' : ''}`;
+}
+
+// ---------- Upscaling for print ----------
+
+// Choices in the details panel's upscale section, for the work it's showing.
+let upChoice = { id: null, scale: 4, model: 'painting', open: false, progress: 0 };
+
+function upscaleHtml(a) {
+  const available = state.app?.upscale?.available;
+  const busy = isUpscaling(a.id);
+  if (!busy && !a.upscaled && !needsUpscale(a)) return '';
+  if (!available) {
+    return needsUpscale(a) ? `<div class="field upscale-field"><span class="label">Upscale for print</span>
+      <p class="up-note">At ${a.width} × ${a.height} this prints sharp only up to ${sharpSize(a.width, a.height).text}. AI upscaling for print runs in the Signal9 Print Studio Mac app.</p></div>` : '';
+  }
+  if (upChoice.id !== a.id) upChoice = { id: a.id, scale: recommendedScale(a), model: defaultModel(a), open: false, progress: 0 };
+  const head = '<span class="label">Upscale for print</span>';
+  if (busy) {
+    const pct = Math.round(upChoice.progress * 100);
+    return `<div class="field upscale-field" id="dUpscale">${head}
+      <div class="up-bar"><i id="dUpBar" style="width:${pct}%"></i></div>
+      <p class="up-note" id="dUpText">Upscaling ${upChoice.scale}× with the ${MODEL_LABELS[upChoice.model].toLowerCase()} model… ${pct}%</p></div>`;
+  }
+  if (a.upscaled && !upChoice.open) {
+    const s = sharpSize(a.upscaled.width, a.upscaled.height);
+    return `<div class="field upscale-field" id="dUpscale">${head}
+      <p class="up-note done">Upscaled ${a.upscaled.scale}× with the ${MODEL_LABELS[a.upscaled.model]?.toLowerCase() || ''} model, to ${a.upscaled.width} × ${a.upscaled.height}.
+        ${sharpWords(s)} The print room uses it automatically; your original is unchanged.</p>
+      <div class="up-actions"><button class="link-btn" data-up="again" type="button">Upscale again</button>
+        <button class="link-btn danger" data-up="discard" type="button">Remove upscaled copy</button></div></div>`;
+  }
+  const now = sharpSize(a.width, a.height);
+  const scales = [2, 3, 4].filter((n) => Math.max(a.width, a.height) * n <= 16000);
+  const rec = recommendedScale(a);
+  return `<div class="field upscale-field" id="dUpscale">${head}
+    <p class="up-note">At ${a.width} × ${a.height} this prints sharp only up to ${now.text}. AI upscaling adds real detail rather than just enlarging.</p>
+    <div class="up-choices" role="radiogroup" aria-label="Upscale by">${scales.map((n) => {
+      const after = sharpSize(a.width * n, a.height * n);
+      // A4 is the ET-8500's largest sheet: past that, say how fine A4 gets.
+      const a4ppi = Math.round(Math.min(Math.max(a.width, a.height) * n / 11.69, Math.min(a.width, a.height) * n / 8.27));
+      const what = after.paper?.startsWith('A4') ? `A4 at ${a4ppi} ppi` : after.paper ? `up to ${after.paper.split(' /')[0]}` : `up to ${after.text}`;
+      return `<button type="button" class="up-choice ${upChoice.scale === n ? 'on' : ''}" data-scale="${n}" role="radio" aria-checked="${upChoice.scale === n}">
+        <b>${n}×</b><span>${what}</span>${n === rec ? '<em>Suggested</em>' : ''}</button>`;
+    }).join('')}</div>
+    <div class="up-choices two" role="radiogroup" aria-label="Upscaling style">${Object.entries(MODEL_LABELS).map(([m, label]) =>
+      `<button type="button" class="up-choice ${upChoice.model === m ? 'on' : ''}" data-model="${m}" role="radio" aria-checked="${upChoice.model === m}"><span>${label}</span></button>`).join('')}</div>
+    <div class="up-actions"><button class="btn outline" data-up="start" type="button">Upscale ${upChoice.scale}×</button>
+      ${a.upscaled ? '<button class="link-btn" data-up="cancel" type="button">Keep the current copy</button>' : ''}</div>
+    <p class="up-note small">Runs on this Mac’s graphics chip, usually in under a minute. Your original isn’t changed.</p></div>`;
+}
+
+// A4 is the largest sheet the ET-8500 takes.
+function sharpWords(s) {
+  return s.paper?.startsWith('A4') ? 'It now prints sharp at full A4.' : `It now prints sharp up to ${s.text}.`;
+}
+
+function rerenderUpscale(a) {
+  const box = $('#dUpscale');
+  if (!box || state.drawerId !== a.id) return;
+  box.outerHTML = upscaleHtml(a) || '<div id="dUpscale"></div>';
+  bindUpscale(a);
+}
+
+function bindUpscale(a) {
+  const box = $('#dUpscale');
+  if (!box) return;
+  $$('[data-scale]', box).forEach((b) => (b.onclick = () => { upChoice.scale = Number(b.dataset.scale); rerenderUpscale(a); }));
+  $$('[data-model]', box).forEach((b) => (b.onclick = () => { upChoice.model = b.dataset.model; rerenderUpscale(a); }));
+  $$('[data-up]', box).forEach((b) => (b.onclick = async () => {
+    const what = b.dataset.up;
+    if (what === 'again') { upChoice.open = true; return rerenderUpscale(a); }
+    if (what === 'cancel') { upChoice.open = false; return rerenderUpscale(a); }
+    if (what === 'discard') {
+      const ok = await ask({ title: 'Remove the upscaled copy?', message: 'The print room goes back to printing from the original. You can upscale again any time.', ok: 'Remove', danger: true });
+      if (!ok) return;
+      const updated = await api(`/api/artworks/${a.id}/upscale`, { method: 'DELETE' });
+      replaceArtwork(updated);
+      return;
+    }
+    if (what === 'start') startUpscale(a, { scale: upChoice.scale, model: upChoice.model });
+  }));
+}
+
+function replaceArtwork(updated) {
+  const i = state.artworks.findIndex((x) => x.id === updated.id);
+  if (i !== -1) state.artworks[i] = updated;
+  render();
+}
+
+async function startUpscale(a, opts) {
+  upChoice = { ...upChoice, id: a.id, ...opts, open: false, progress: 0 };
+  const onProgress = (p) => {
+    if (upChoice.id === a.id) upChoice.progress = p;
+    const bar = $('#dUpBar'), text = $('#dUpText');
+    if (state.drawerId === a.id && bar) {
+      bar.style.width = `${Math.round(p * 100)}%`;
+      text.textContent = `Upscaling ${opts.scale}× with the ${MODEL_LABELS[opts.model].toLowerCase()} model… ${Math.round(p * 100)}%`;
+    }
+  };
+  const run = runUpscale(a, opts, onProgress);
+  rerenderUpscale(a);
+  try {
+    const updated = await run;
+    replaceArtwork(updated);
+    const s = sharpSize(updated.upscaled.width, updated.upscaled.height);
+    toast(`“${updated.title}” upscaled ${opts.scale}×. ${sharpWords(s)}`, 'good', 6000);
+  } catch (err) {
+    toast(`${a.title}: ${err.message}`, 'bad', 8000);
+    rerenderUpscale(state.artworks.find((x) => x.id === a.id) || a);
+  }
+}
+
+// Picks up an upscale already running on the server (e.g. after a reload).
+async function resumeUpscales() {
+  const jobs = (state.app?.upscale?.jobs || []).filter((j) => j.state === 'queued' || j.state === 'running');
+  for (const j of jobs) {
+    const a = state.artworks.find((x) => x.id === j.id);
+    if (a) followUpscale(a.id).then(replaceArtwork, () => {});
+  }
 }
 
 async function updateArtwork(id, patch) {
@@ -781,6 +902,12 @@ function startPrint(ids) {
       refreshPrinterStatus();
     },
     onAnalysis: (id, analysis) => updateArtwork(id, { analysis }),
+    upscaleAvailable: Boolean(state.app?.upscale?.available),
+    upscale: async (art, onProgress) => {
+      const updated = await runUpscale(art, { scale: recommendedScale(art), model: defaultModel(art) }, onProgress);
+      replaceArtwork(updated);
+      return updated;
+    },
   });
 }
 

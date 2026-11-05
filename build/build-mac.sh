@@ -31,6 +31,28 @@ swiftc -O -target arm64-apple-macos13.0 vision/Signal9Vision.swift -o "$OUT/sign
 SAMPLE=$(find "/System/Library/Desktop Pictures" /Library/Desktop\ Pictures -maxdepth 2 \( -name '*.heic' -o -name '*.jpg' -o -name '*.png' \) 2>/dev/null | head -1 || true)
 "$OUT/signal9-vision" build/icon.png ${SAMPLE:+"$SAMPLE"} | node build/check-vision.cjs
 
+echo "▸ Fetching the upscaler (Real-ESRGAN, MIT / BSD-3)"
+# Pinned to one release and checked against its fingerprint, so the build fails
+# if the download is ever anything other than this exact file.
+UPSCALER_URL=https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-macos.zip
+UPSCALER_SHA256=e0ad05580abfeb25f8d8fb55aaf7bedf552c375b5b4d9bd3c8d59764d2cc333a
+curl -fsSL -o "$OUT/upscaler.zip" "$UPSCALER_URL"
+echo "$UPSCALER_SHA256  $OUT/upscaler.zip" | shasum -a 256 -c -
+unzip -q "$OUT/upscaler.zip" -d "$OUT/upscaler-src"
+UP="$OUT/upscaler"
+mkdir -p "$UP/models"
+# Only the Apple silicon half of the program, and the two models the app uses.
+lipo -thin arm64 "$OUT/upscaler-src/realesrgan-ncnn-vulkan" -output "$UP/realesrgan-ncnn-vulkan"
+chmod +x "$UP/realesrgan-ncnn-vulkan"
+codesign --force --sign - "$UP/realesrgan-ncnn-vulkan"
+for m in realesrgan-x4plus realesrgan-x4plus-anime; do
+  cp "$OUT/upscaler-src/models/$m.param" "$OUT/upscaler-src/models/$m.bin" "$UP/models/"
+done
+cp build/upscaler-LICENSES.txt "$UP/LICENSES.txt"
+# Upscale a small test image through the app's own code before it ships.
+sips -Z 160 build/icon.png --out "$OUT/upscale-check.png" >/dev/null
+node build/check-upscaler.mjs "$UP" "$OUT/upscale-check.png"
+
 echo "▸ Packaging the app"
 npx electron-packager . "$APP_NAME" \
   --platform=darwin --arch=arm64 \
@@ -40,6 +62,7 @@ npx electron-packager . "$APP_NAME" \
   --app-version="$VERSION" \
   --app-category-type=public.app-category.photography \
   --extra-resource="$OUT/signal9-vision" \
+  --extra-resource="$UP" \
   --ignore='^/(dist|build|test|vision|\.github|\.claude)(/|$)' \
   --ignore='^/start\.command$'
 

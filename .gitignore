@@ -9,3 +9,4 @@ Signal9 Library/
 # Local editor/agent settings
 .claude/
 vision/signal9-vision
+vision/upscaler/

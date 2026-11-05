@@ -14,6 +14,7 @@ import { Library } from './server/library.js';
 import { createPrinting, httpError } from './server/printing.js';
 import { buildImagePdf } from './server/pdf.js';
 import { Vision } from './server/vision.js';
+import { Upscaler } from './server/upscale.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const VERSION = JSON.parse(await readFile(path.join(here, 'package.json'), 'utf8')).version;
@@ -26,6 +27,11 @@ const MIME = {
   '.webp': 'image/webp', '.gif': 'image/gif', '.avif': 'image/avif', '.tif': 'image/tiff', '.tiff': 'image/tiff',
   '.heic': 'image/heic', '.ico': 'image/x-icon',
 };
+
+// The upscaler bundle: a folder holding realesrgan-ncnn-vulkan and its models folder.
+export function upscalerIn(dir) {
+  return dir ? { bin: [path.join(dir, 'realesrgan-ncnn-vulkan')], models: path.join(dir, 'models') } : null;
+}
 
 function hasCups() {
   if (process.platform === 'win32') return false;
@@ -95,16 +101,20 @@ export async function startServer({
   mock = process.env.SIGNAL9_MOCK === '1' || !hasCups(),
   // The Mac app passes the helper bundled in its Resources; from source, `npm run build:vision` makes one.
   visionHelper = process.env.SIGNAL9_VISION ? [process.env.SIGNAL9_VISION] : process.platform === 'darwin' ? [path.join(here, 'vision', 'signal9-vision')] : null,
+  // Real-ESRGAN: the Mac app passes the copy in its Resources; from source, set SIGNAL9_UPSCALER to its folder.
+  upscaler = upscalerIn(process.env.SIGNAL9_UPSCALER || (process.platform === 'darwin' ? path.join(here, 'vision', 'upscaler') : null)),
 } = {}) {
   const library = new Library(libraryDir);
   const printing = createPrinting({ mock, outboxDir: path.join(libraryDir, 'simulated-prints') });
   await library.init();
   const vision = new Vision(library, visionHelper);
   await vision.init();
+  const upscale = new Upscaler(library, upscaler);
+  await upscale.init();
 
   const routes = [
     ['GET', /^\/api\/status$/, async () => ({
-      mock, libraryDir, platform: process.platform, version: VERSION, vision: vision.status(),
+      mock, libraryDir, platform: process.platform, version: VERSION, vision: vision.status(), upscale: upscale.status(),
     })],
 
     ['GET', /^\/api\/library$/, async () => library.snapshot()],
@@ -117,6 +127,10 @@ export async function startServer({
       if (!art.alreadyInLibrary) vision.scan();
       return art;
     }],
+
+    ['POST', /^\/api\/artworks\/([\w-]+)\/upscale$/, async (req, [id]) => upscale.start(id, await readJson(req))],
+    ['GET', /^\/api\/artworks\/([\w-]+)\/upscale$/, async (req, [id]) => ({ job: upscale.job(id), artwork: library.find(id) })],
+    ['DELETE', /^\/api\/artworks\/([\w-]+)\/upscale$/, async (req, [id]) => upscale.discard(id)],
 
     ['GET', /^\/api\/artworks\/([\w-]+)\/similar$/, async (req, [id]) => {
       library.find(id);
@@ -188,7 +202,7 @@ export async function startServer({
         }
         return send(res, 404, { error: 'Unknown endpoint' });
       }
-      const fileMatch = pathname.match(/^\/files\/(originals|display|thumbs)\/([^/]+)$/);
+      const fileMatch = pathname.match(/^\/files\/(originals|display|thumbs|upscaled)\/([^/]+)$/);
       if (fileMatch) {
         const file = library.fileFor(fileMatch[1], fileMatch[2]);
         if (!file) return send(res, 400, { error: 'Bad file name' });

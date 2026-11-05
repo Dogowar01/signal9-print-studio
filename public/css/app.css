@@ -615,6 +615,29 @@ details.all-settings[open] summary::after { content: "Hide"; }
 .modal-field textarea { min-height: 76px; font-family: var(--serif); font-style: italic; font-size: 16px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
+/* ── Upscaling for print ── */
+.upscale-field { padding: 14px 16px 16px; background: linear-gradient(rgba(10, 9, 8, .55), rgba(10, 9, 8, .55)), var(--wall) center/900px, var(--black); outline: 1px solid rgba(138, 90, 44, .35); outline-offset: -1px; }
+.up-note { margin: 0; font-family: var(--serif); font-style: italic; font-size: 15.5px; line-height: 1.45; color: var(--light-grey); }
+.up-note.done { color: var(--cream); }
+.up-note.small { font-size: 13.5px; color: var(--faint); }
+.up-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.up-choices.two { grid-template-columns: 1fr 1fr; }
+.up-choice {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 10px 8px; cursor: pointer; text-align: left;
+  background: rgba(10, 9, 8, .6); border: 1px solid var(--line); color: var(--muted); font: inherit; transition: border-color .25s, color .25s, background .25s;
+}
+.up-choice b { font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1; color: var(--white); }
+.up-choice span { font-size: 11px; letter-spacing: .04em; }
+.up-choice em { position: absolute; top: 6px; right: 7px; font-style: normal; font-size: 8.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--ochre); }
+.up-choice:hover { border-color: rgba(217, 162, 58, .5); color: var(--cream); }
+.up-choice.on { border-color: var(--ochre); background: rgba(217, 162, 58, .1); color: var(--cream); box-shadow: inset 0 0 0 1px rgba(217, 162, 58, .4); }
+.up-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; }
+.link-btn.danger { color: #e39a8a; }
+.up-bar { height: 6px; background: rgba(232, 226, 217, .08); overflow: hidden; }
+.up-bar i { display: block; height: 100%; width: 0; background: var(--tile-rule); background-size: 400px 100%; box-shadow: 0 0 12px rgba(224, 122, 46, .5); transition: width .6s var(--ease); }
+.up-offer { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.up-offer .btn { align-self: flex-start; }
+
 /* ── Like images: recognised subjects, the "More like this" strip, grouped views ── */
 .badge.subject { background: none; cursor: pointer; font-family: inherit; text-transform: none; letter-spacing: .02em; font-size: 12px; color: var(--cobalt-light); border-color: rgba(127, 166, 191, .4); transition: color .25s, border-color .25s; }
 .badge.subject:hover { color: var(--white); border-color: var(--cobalt-light); }

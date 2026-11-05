@@ -21,6 +21,11 @@ Everything runs on your own computer. Your artworks never leave your Mac.
   *Show all similar works* to rank the whole library by look, subject or both. Search also finds works by
   what's in them, so "sunflower" or "skyline" works without tagging anything. Subjects are recognised by
   macOS's built-in image recognition (Apple's Vision framework), on the Mac itself; nothing is uploaded.
+- **Upscale for print:** works too small to print sharply get an *Upscale for print* section in their
+  details (and a button in the print room when the resolution is low). AI upscaling (Real-ESRGAN, on the
+  Mac's graphics chip) enlarges them 2×, 3× or 4× with real added detail, using a model for paintings and
+  photos or one for illustration and flat graphics. The upscaled copy is kept beside the original, which
+  is never changed, and the print room prints from it automatically.
 - **Print studio:** pick paper type, paper size, borderless, layout (fit, fill/crop or an exact
   width), margin and copies. Print one artwork or a whole selection in one go.
 - **Smart analysis:** each artwork is measured for resolution, tonal range, shadow and highlight
@@ -137,6 +142,11 @@ On a computer without CUPS (such as Windows), the simulated printer is used auto
 Subject recognition uses a small Swift helper (`vision/Signal9Vision.swift`) that the Mac build compiles,
 self-tests and bundles. To use it when running from source on a Mac, run `npm run build:vision` once.
 Elsewhere, grouping by style and "More like this" by look still work.
+
+Upscaling uses [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) (`realesrgan-ncnn-vulkan`, MIT; models
+BSD-3, see `build/upscaler-LICENSES.txt`). The Mac build downloads one pinned release, checks its SHA-256,
+keeps the Apple silicon program and two models, and test-upscales an image before packaging. From source on
+a Mac, unzip that release and point `SIGNAL9_UPSCALER` at the folder.
 
 **Releasing a new version:**
 1. Bump `version` in `package.json` and commit.

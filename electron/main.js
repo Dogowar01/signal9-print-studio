@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startServer } from '../server.js';
+import { startServer, upscalerIn } from '../server.js';
 import { setupUpdater } from './updater.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -35,6 +35,7 @@ if (!app.requestSingleInstanceLock()) {
         libraryDir: process.env.SIGNAL9_LIBRARY || undefined,
         // The image-recognition helper is built with the app and sits in its Resources folder.
         visionHelper: app.isPackaged ? [path.join(process.resourcesPath, 'signal9-vision')] : undefined,
+        upscaler: app.isPackaged ? upscalerIn(path.join(process.resourcesPath, 'upscaler')) : undefined,
       });
     } catch (err) {
       dialog.showErrorBox('Signal9 Print Studio could not start', err.message);
