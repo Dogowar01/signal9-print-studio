@@ -180,12 +180,12 @@ const SUBJECTS = [
   ['animals', 'Animals', 1.1, ['animal', 'bird', 'cat', 'dog', 'horse', 'fish', 'insect', 'mammal', 'butterfly', 'wildlife', 'reptile', 'feline', 'canine']],
   ['music', 'Music & text', 1.05, ['music', 'sheet_music', 'musical', 'document', 'text', 'printed_page', 'book', 'handwriting', 'newspaper', 'poster', 'letter']],
   ['flowers', 'Flowers & plants', 1.0, ['flower', 'sunflower', 'rose', 'blossom', 'plant', 'tree', 'leaf', 'foliage', 'garden', 'forest', 'bouquet', 'petal']],
-  ['city', 'Cities & buildings', 1.0, ['cityscape', 'city', 'building', 'skyscraper', 'architecture', 'street', 'bridge', 'tower', 'skyline', 'house', 'monument', 'structure', 'church', 'castle', 'downtown']],
+  ['city', 'Cities & buildings', 1.0, ['cityscape', 'city', 'building', 'skyscraper', 'architecture', 'street', 'bridge', 'tower', 'skyline', 'house', 'monument', 'church', 'castle', 'downtown']],
   ['vehicles', 'Vehicles', 1.0, ['vehicle', 'car', 'train', 'boat', 'ship', 'aircraft', 'airplane', 'bicycle', 'motorcycle']],
   ['food', 'Food & still life', 0.95, ['food', 'fruit', 'vegetable', 'drink', 'still_life', 'vase', 'bottle']],
-  ['land', 'Landscapes', 0.9, ['landscape', 'mountain', 'hill', 'field', 'desert', 'canyon', 'valley', 'countryside', 'grass', 'land']],
+  ['land', 'Landscapes', 0.9, ['landscape', 'mountain', 'hill', 'field', 'desert', 'canyon', 'valley', 'countryside', 'grass', 'land', 'rocks', 'rock', 'cliff', 'volcano', 'glacier']],
   ['water', 'Sea & water', 0.85, ['sea', 'ocean', 'beach', 'lake', 'river', 'water', 'waterfall', 'wave', 'shore', 'coast']],
-  ['sky', 'Sky & space', 0.8, ['sky', 'cloud', 'sunset', 'sunrise', 'night_sky', 'star', 'moon', 'galaxy', 'astronomy', 'space', 'outer_space', 'aurora']],
+  ['sky', 'Sky & space', 0.75, ['sky', 'cloud', 'sunset', 'sunrise', 'night_sky', 'star', 'moon', 'galaxy', 'astronomy', 'space', 'outer_space', 'aurora']],
   ['pattern', 'Abstract & pattern', 0.7, ['abstract', 'pattern', 'texture', 'art', 'painting', 'graphic', 'illustration', 'design', 'fractal', 'mosaic', 'collage']],
 ];
 

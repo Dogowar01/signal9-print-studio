@@ -41,6 +41,12 @@ test('style groups get plain names', () => {
   assert.equal(styleGroup({ ...emberDark, v: 1 }).sort, 99); // older measurements get redone
 });
 
+test('subjects: a landscape is a landscape, not a city', () => {
+  // Real signal9-vision output for macOS's "Valley Light" desktop picture (GitHub Actions build).
+  const valley = { labels: [['outdoor', 0.902], ['sky', 0.879], ['blue_sky', 0.851], ['rocks', 0.777], ['structure', 0.777]] };
+  assert.equal(subjectGroup(valley).name, 'Landscapes');
+});
+
 test('subjects: what a picture is of beats its backdrop', () => {
   const city = { labels: [['sky', 0.92], ['cityscape', 0.8], ['structure', 0.85]] };
   assert.equal(subjectGroup(city).name, 'Cities & buildings');
