@@ -615,6 +615,35 @@ details.all-settings[open] summary::after { content: "Hide"; }
 .modal-field textarea { min-height: 76px; font-family: var(--serif); font-style: italic; font-size: 16px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
+/* ── Duplicates: each set of copies laid out like tiles on the wall ── */
+.modal.dupes { width: min(900px, 100%); max-height: min(86vh, 900px); }
+.modal.dupes .dupes-sum { font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1.45; color: var(--light-grey); }
+.dupes-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; margin: 0 -8px; padding: 0 8px; }
+.dupes-list:empty { display: none; }
+.dupe-group { padding: 14px 16px 16px; background: linear-gradient(rgba(10, 9, 8, .6), rgba(10, 9, 8, .6)), var(--wall) center/900px, var(--black); border: 1px solid var(--line-soft); transition: opacity .3s; }
+.dupe-group.off { opacity: .45; }
+.dupe-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; cursor: pointer; margin-bottom: 12px; }
+.dupe-head input { accent-color: var(--ember); align-self: center; margin: 0; }
+.dupe-title { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--white); }
+.dupe-kind { font-size: 9.5px; letter-spacing: .24em; text-transform: uppercase; color: var(--warm-grey); }
+.dupe-copies { display: flex; flex-wrap: wrap; gap: 12px; }
+.dupe-copy { width: 168px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+.dupe-img { position: relative; display: block; height: 124px; background: rgba(10, 9, 8, .6); outline: 1px solid rgba(138, 90, 44, .4); outline-offset: -1px; transition: outline-color .25s; }
+.dupe-img img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; transition: opacity .25s, filter .25s; opacity: .42; filter: grayscale(.6); }
+.dupe-img b {
+  position: absolute; z-index: 1; left: 6px; top: 6px; padding: 3px 7px; font-weight: 400; font-size: 9px; letter-spacing: .22em; text-transform: uppercase;
+  background: rgba(10, 9, 8, .82); color: #e39a8a; border: 1px solid rgba(200, 87, 63, .55);
+}
+.dupe-copy:hover .dupe-img { outline-color: rgba(217, 162, 58, .6); }
+.dupe-copy:hover .dupe-img img { opacity: .7; }
+.dupe-copy.keep .dupe-img { outline: 2px solid var(--ochre); outline-offset: -2px; }
+.dupe-copy.keep .dupe-img img { opacity: 1; filter: none; }
+.dupe-copy.keep .dupe-img b { color: var(--black); background: var(--ochre); border-color: var(--ochre); }
+.dupe-meta { display: block; margin-top: 7px; font-size: 11px; line-height: 1.45; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dupe-meta i { display: block; font-family: var(--serif); font-size: 13px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dupe-copy:focus-visible { outline: 1px solid var(--ochre); outline-offset: 3px; }
+.modal.dupes .dupes-note { font-size: 12.5px; color: var(--faint); }
+
 /* ── Update card (Mac app) ── */
 .update-card {
   position: fixed; right: 24px; bottom: 24px; z-index: 110; width: 340px; padding: 18px 20px 16px;

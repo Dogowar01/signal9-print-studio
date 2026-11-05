@@ -4,7 +4,8 @@
 import { mkdir, readFile, writeFile, rename, copyFile, unlink } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { httpError } from './printing.js';
 
@@ -65,6 +66,12 @@ export class Library {
   }
 
   async addArtwork({ originalName, buffer, mime }) {
+    // The exact same file is already here: hand back that copy instead of adding another.
+    const hash = sha256(buffer);
+    await this.ensureHashes();
+    const existing = this.data.artworks.find((a) => a.hash === hash);
+    if (existing) return { ...existing, alreadyInLibrary: true };
+
     const id = randomUUID();
     const ext = (path.extname(originalName) || mimeExt(mime)).toLowerCase();
     const original = `${id}${ext}`;
@@ -94,6 +101,7 @@ export class Library {
       display,
       thumb: null,
       size: buffer.length,
+      hash,
       mime,
       width: null,
       height: null,
@@ -152,6 +160,50 @@ export class Library {
     await this.save();
   }
 
+  // Fingerprints any original that doesn't have one yet (works imported before 1.5).
+  ensureHashes() {
+    this.hashing ??= (async () => {
+      let changed = false;
+      for (const art of this.data.artworks) {
+        if (art.hash) continue;
+        try {
+          art.hash = await sha256File(path.join(this.dir, 'originals', art.original));
+          changed = true;
+        } catch { /* original missing: it can't be compared */ }
+      }
+      if (changed) await this.save();
+    })().finally(() => { this.hashing = null; });
+    return this.hashing;
+  }
+
+  async fileHashes() {
+    await this.ensureHashes();
+    return Object.fromEntries(this.data.artworks.filter((a) => a.hash).map((a) => [a.id, a.hash]));
+  }
+
+  // Keeps one copy of a duplicated work. Everything recorded against the other
+  // copies (tags, collections, rating, notes, print history) moves onto it,
+  // then the other copies go to the trash folder.
+  async mergeDuplicates(keepId, removeIds) {
+    const keep = this.find(keepId);
+    const others = [...new Set(removeIds)].filter((id) => id !== keepId).map((id) => this.find(id));
+    for (const o of others) {
+      keep.tags = [...new Set([...keep.tags, ...o.tags])];
+      keep.collections = [...new Set([...keep.collections, ...o.collections])];
+      keep.rating = Math.max(keep.rating || 0, o.rating || 0);
+      keep.favorite = keep.favorite || o.favorite;
+      keep.printCount = (keep.printCount || 0) + (o.printCount || 0);
+      if (o.lastPrintedAt && (!keep.lastPrintedAt || o.lastPrintedAt > keep.lastPrintedAt)) keep.lastPrintedAt = o.lastPrintedAt;
+      if (o.addedAt < keep.addedAt) keep.addedAt = o.addedAt;
+      if (o.notes?.trim() && !keep.notes.includes(o.notes.trim())) keep.notes = [keep.notes.trim(), o.notes.trim()].filter(Boolean).join('\n\n');
+      keep.paperId ||= o.paperId;
+      if (/^untitled$/i.test(keep.title) && !/^untitled$/i.test(o.title)) keep.title = o.title;
+      for (const h of this.data.history) if (h.artworkId === o.id) h.artworkId = keep.id;
+    }
+    for (const o of others) await this.remove(o.id);
+    return keep;
+  }
+
   async addCollection({ name, description = '' }) {
     const col = {
       id: randomUUID(),
@@ -194,6 +246,15 @@ export class Library {
   history() {
     return this.data.history.slice(0, 200);
   }
+}
+
+const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex');
+
+function sha256File(file) {
+  return new Promise((resolve, reject) => {
+    const h = createHash('sha256');
+    createReadStream(file).on('error', reject).on('data', (d) => h.update(d)).on('end', () => resolve(h.digest('hex')));
+  });
 }
 
 function mimeExt(mime) {

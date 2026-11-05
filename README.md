@@ -11,6 +11,10 @@ Everything runs on your own computer. Your artworks never leave your Mac.
 
 - **Library:** drag artworks in (JPEG, PNG, WebP, TIFF, HEIC, PSD). Give them titles, star ratings,
   favourites, tags, notes and collections. Search, sort and filter by any of them.
+- **Duplicates:** importing a file that's already in the library is skipped. *Duplicates* (also
+  *Edit → Find Duplicates…*) finds works that are in more than once, including the same picture saved at
+  another size or format, keeps the best copy and moves its tags, collections, ratings and print history
+  onto it. Removed copies go to the library's trash folder.
 - **Print studio:** pick paper type, paper size, borderless, layout (fit, fill/crop or an exact
   width), margin and copies. Print one artwork or a whole selection in one go.
 - **Smart analysis:** each artwork is measured for resolution, tonal range, shadow and highlight

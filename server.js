@@ -116,6 +116,13 @@ export async function startServer({ ports = [4321], libraryDir = DEFAULT_LIBRARY
       return { ok: true };
     }],
 
+    ['GET', /^\/api\/duplicates\/hashes$/, async () => library.fileHashes()],
+    ['POST', /^\/api\/duplicates\/merge$/, async (req) => {
+      const { keep, remove } = await readJson(req);
+      if (typeof keep !== 'string' || !Array.isArray(remove)) throw httpError(400, 'Say which copy to keep and which to remove.');
+      return library.mergeDuplicates(keep, remove);
+    }],
+
     ['POST', /^\/api\/collections$/, async (req) => library.addCollection(await readJson(req))],
     ['PATCH', /^\/api\/collections\/([\w-]+)$/, async (req, [id]) => library.updateCollection(id, await readJson(req))],
     ['DELETE', /^\/api\/collections\/([\w-]+)$/, async (req, [id]) => {

@@ -5,6 +5,7 @@ import { analyzeImage, describe, ANALYSIS_VERSION } from './analyze.js';
 import { openStudio } from './studio.js';
 import { showUpdate } from './update-ui.js';
 import { applyBrandTextures, renderHeroMosaic, revealCard } from './mosaic.js';
+import { openDuplicates } from './duplicates.js';
 
 applyBrandTextures();
 
@@ -463,7 +464,7 @@ async function importFiles(files) {
   files = [...files].filter((f) => f.type.startsWith('image/') || /\.(tiff?|heic|heif|psd|dng)$/i.test(f.name));
   if (!files.length) return;
   const note = toast(`Importing ${files.length} artwork${files.length > 1 ? 's' : ''}…`, '', 600000);
-  let done = 0, failed = 0;
+  let done = 0, failed = 0, skipped = 0;
   const queue = [...files];
   const worker = async () => {
     while (queue.length) {
@@ -474,9 +475,13 @@ async function importFiles(files) {
           body: file,
           headers: { 'X-Filename': encodeURIComponent(file.name), 'Content-Type': file.type || 'application/octet-stream' },
         });
-        state.artworks.unshift(art);
-        render();
-        await processArtwork(art);
+        if (art.alreadyInLibrary) {
+          skipped++;
+        } else {
+          state.artworks.unshift(art);
+          render();
+          await processArtwork(art);
+        }
       } catch (err) {
         failed++;
         toast(`${file.name}: ${err.message}`, 'bad');
@@ -487,7 +492,9 @@ async function importFiles(files) {
   };
   await Promise.all([worker(), worker()]);
   note.remove();
-  toast(`Imported ${done - failed} artwork${done - failed === 1 ? '' : 's'}.`, failed ? 'bad' : 'good');
+  const added = done - failed - skipped;
+  const skipNote = skipped ? ` Skipped ${skipped} already in the library.` : '';
+  toast(`Imported ${added} artwork${added === 1 ? '' : 's'}.${skipNote}`, failed ? 'bad' : 'good');
 }
 
 // Builds the thumbnail and the colour/tone analysis for an artwork.
@@ -720,6 +727,7 @@ $('#selectMode').onclick = () => {
   renderGrid();
   renderSelection();
 };
+$('#findDuplicates').onclick = findDuplicates;
 $('#removeSelected').onclick = () => removeArtworks([...state.selected]);
 $('#printSelected').onclick = () => startPrint([...state.selected]);
 $('#addToCollection').onchange = async (e) => {
@@ -801,6 +809,19 @@ function selectAllWorks() {
   $('#selectAll').click();
 }
 
+function findDuplicates() {
+  if (!$('#studio').hidden) return;
+  if (state.artworks.length < 2) return toast('Duplicates show up once there are at least two works in the library.');
+  closeDrawer();
+  openDuplicates(state.artworks, async () => {
+    await reloadLibrary();
+    const ids = new Set(state.artworks.map((a) => a.id));
+    for (const id of state.selected) if (!ids.has(id)) state.selected.delete(id);
+    if (!state.selected.size) state.selecting = false;
+    render();
+  });
+}
+
 // ⌘P: print the selection, or the artwork whose details are open.
 function printShortcut() {
   const ids = state.selected.size ? [...state.selected] : state.drawerId ? [state.drawerId] : [];
@@ -817,6 +838,7 @@ if (window.signal9App) {
     const typing = /INPUT|TEXTAREA/.test(document.activeElement?.tagName);
     if (command === 'print' && $('#studio').hidden) printShortcut();
     if (command === 'remove' && $('#studio').hidden && !typing) removeShortcut();
+    if (command === 'duplicates') findDuplicates();
     // ⌘A selects text while typing, otherwise every work in view.
     if (command === 'selectAll') {
       if (typing || !$('#studio').hidden) document.execCommand('selectAll');

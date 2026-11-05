@@ -177,6 +177,7 @@ function buildMenu() {
         { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: () => send('selectAll') },
         { type: 'separator' },
         { label: 'Remove from Library…', accelerator: 'CmdOrCtrl+Backspace', click: () => send('remove') },
+        { label: 'Find Duplicates…', click: () => send('duplicates') },
       ],
     },
     {
