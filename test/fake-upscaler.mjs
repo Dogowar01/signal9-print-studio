@@ -4,6 +4,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
+if (!args.includes('-i')) process.exit(0); // picked up by `node --test`: nothing to do
 const opt = (k) => args[args.indexOf(k) + 1];
 const input = readFileSync(opt('-i'));
 if (input.toString('latin1').endsWith('BROKEN')) {
@@ -14,7 +15,7 @@ const w = input.readUInt32BE(16), h = input.readUInt32BE(20);
 for (const p of ['0.00%', '25.00%', '50.00%', '75.00%']) process.stderr.write(`${p}\n`);
 writeFileSync(opt('-o'), pngHeader(w * Number(opt('-s')), h * Number(opt('-s'))));
 
-export function pngHeader(w, h) {
+function pngHeader(w, h) {
   const b = Buffer.alloc(33);
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0);
   b.writeUInt32BE(13, 8);
