@@ -8,6 +8,7 @@ import { applyBrandTextures, renderHeroMosaic, revealCard } from './mosaic.js';
 import { openDuplicates } from './duplicates.js';
 import { printPixels, sharpSize, needsUpscale, recommendedScale, defaultModel, MODEL_LABELS, runUpscale, followUpscale, isUpscaling } from './upscale.js';
 import { STYLE_VERSION, styleSignature, groupByStyle, subjectGroup, subjectWords, rankSimilar } from './similar.js';
+import { openViewer, viewerOpen, viewerArtwork, closeViewer } from './viewer.js';
 
 applyBrandTextures();
 
@@ -381,6 +382,7 @@ function cardHtml(a, index) {
         </div>
         <div class="check" data-select title="Select">${icons.check}</div>
         <button class="fav ${a.favorite ? 'on' : ''}" data-fav title="Favourite" type="button">${icons.heart}</button>
+        ${a.thumb ? `<button class="view" data-view-full title="View full screen (Space)" type="button">${icons.expand}</button>` : ''}
         ${state.processing.has(a.id) ? '<div class="progress"></div>' : ''}
       </div>
     </article>`;
@@ -508,8 +510,9 @@ function renderDrawer() {
   const src = a.display ? `/files/display/${a.display}` : a.thumb ? `/files/thumbs/${a.thumb}` : '';
   const traits = describe(a.analysis);
   d.innerHTML = `
-    <div class="art">${src ? `<img src="${src}" alt="">` : '<span style="color:var(--faint)">No preview</span>'}
+    <div class="art">${src ? `<img src="${src}" alt="" data-view-full title="View full screen (Space)">` : '<span style="color:var(--faint)">No preview</span>'}
       <button class="icon-btn" data-remove title="Remove from library (⌘⌫)" type="button">${icons.trash}</button>
+      ${src ? `<button class="icon-btn" data-view-full title="View full screen (Space)" type="button">${icons.expand}</button>` : ''}
       <button class="icon-btn" data-close title="Close" type="button">${icons.close}</button></div>
     <div class="body">
       <div class="plate-line">Signal9 Studio · ${plateOf(a)}</div>
@@ -549,6 +552,7 @@ function renderDrawer() {
   const patch = (p) => updateArtwork(a.id, p);
   $('[data-close]', d).onclick = closeDrawer;
   $('[data-remove]', d).onclick = () => removeArtworks([a.id]);
+  $$('[data-view-full]', d).forEach((b) => (b.onclick = () => viewFullScreen(a.id)));
   $('#dTitle', d).onchange = (e) => patch({ title: e.target.value });
   $$('#dRating button', d).forEach((b) => (b.onclick = () => patch({ rating: Number(b.dataset.r) === a.rating ? 0 : Number(b.dataset.r) })));
   $('#dFav', d).onclick = () => patch({ favorite: !a.favorite });
@@ -940,6 +944,7 @@ $('#grid').addEventListener('click', (e) => {
     const a = state.artworks.find((x) => x.id === id);
     return updateArtwork(id, { favorite: !a.favorite });
   }
+  if (e.target.closest('[data-view-full]')) return viewFullScreen(id);
   if (e.target.closest('[data-select]') || e.metaKey || e.ctrlKey || e.shiftKey || isSelecting()) {
     return toggleSelect(id, e.shiftKey);
   }
@@ -948,7 +953,7 @@ $('#grid').addEventListener('click', (e) => {
 
 $('#grid').addEventListener('dblclick', (e) => {
   const card = e.target.closest('.card');
-  if (card) startPrint([card.dataset.id]);
+  if (card && !e.target.closest('[data-view-full]')) startPrint([card.dataset.id]);
 });
 
 // Drag cards onto a collection link to add them to it.
@@ -1113,7 +1118,33 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     printShortcut();
   }
+  // Space shows a work full screen, like Quick Look: the open one, the one under the pointer, or the one selected.
+  if (e.key === ' ' && !typing && !e.repeat && $('#studio').hidden && !$('.modal-backdrop')) {
+    const hovered = $('#grid .card:hover')?.dataset.id;
+    const id = state.drawerId || hovered || (state.selected.size === 1 ? [...state.selected][0] : null);
+    if (id) {
+      e.preventDefault();
+      viewFullScreen(id);
+    }
+  }
 });
+
+// Full screen steps through the works in the order the library shows them.
+function viewFullScreen(id) {
+  const byId = new Map(state.artworks.map((a) => [a.id, a]));
+  const viewable = (a) => a && (a.display || a.thumb);
+  let list = [...new Set($$('#grid .card').map((c) => c.dataset.id))].map((x) => byId.get(x)).filter(viewable);
+  if (!list.some((a) => a.id === id)) list = [byId.get(id)].filter(viewable);
+  if (!list.length) return toast('That work has no preview to show yet.');
+  openViewer(list, id, {
+    plate: plateOf,
+    onPrint: (x) => startPrint([x]),
+    // Open details follow along to the work last viewed.
+    onClose: (x) => {
+      if (state.drawerId && state.drawerId !== x && state.artworks.some((a) => a.id === x)) openDrawer(x);
+    },
+  });
+}
 
 function selectAllWorks() {
   state.selecting = true;
@@ -1146,6 +1177,15 @@ if (window.signal9App) {
   document.documentElement.classList.add('is-app', `on-${window.signal9App.platform}`);
   window.signal9App.onUpdate((info) => showUpdate(info, () => window.signal9App.installUpdate()));
   window.signal9App.onMenu(async (command) => {
+    // While a work is full screen, ⌘P prints it and library commands wait.
+    if (viewerOpen()) {
+      if (command === 'print') {
+        const id = viewerArtwork();
+        closeViewer();
+        startPrint([id]);
+      }
+      if (command !== 'refresh') return;
+    }
     const typing = /INPUT|TEXTAREA/.test(document.activeElement?.tagName);
     if (command === 'print' && $('#studio').hidden) printShortcut();
     if (command === 'remove' && $('#studio').hidden && !typing) removeShortcut();

@@ -379,6 +379,13 @@ body:has(.simulated-banner:not([hidden])) .library { height: calc(100% - 64px - 
 .card:hover .fav, .card .fav.on { opacity: 1; }
 .card .fav.on { color: var(--ember); }
 .card .fav.on svg { fill: currentColor; filter: drop-shadow(0 0 6px var(--ember)); }
+.card .view {
+  position: absolute; top: 12px; right: 46px; z-index: 2; border: 0; background: rgba(10, 9, 8, .4); width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; cursor: zoom-in; color: var(--cream); opacity: 0; transition: opacity .3s, color .3s;
+}
+.card .view svg { width: 14px; height: 14px; }
+.card:hover .view { opacity: 1; }
+.card .view:hover { color: var(--ochre); }
 .stars { display: inline-flex; gap: 2px; color: var(--faint); }
 .stars svg { width: 10px; height: 10px; }
 .stars .on { color: var(--sienna-light); fill: var(--sienna-light); }
@@ -437,6 +444,51 @@ body:has(.simulated-banner:not([hidden])) .library { height: calc(100% - 64px - 
 .drawer > .art .icon-btn { position: absolute; top: 12px; right: 12px; border-color: var(--line); background: rgba(10, 9, 8, .5); }
 .drawer > .art .icon-btn[data-remove] { right: auto; left: 12px; }
 .drawer > .art .icon-btn[data-remove]:hover { color: var(--bad); border-color: rgba(200, 87, 63, .6); }
+.drawer > .art .icon-btn[data-view-full] { right: 52px; }
+.drawer > .art img[data-view-full] { cursor: zoom-in; }
+
+/* ── Full-screen viewer ── */
+.viewer { position: fixed; inset: 0; z-index: 70; background: #050404; outline: none; overflow: hidden; user-select: none; animation: s9-fade .35s ease both; }
+.viewer-stage { position: absolute; inset: 0; cursor: zoom-in; touch-action: none; }
+.viewer.zoomed .viewer-stage { cursor: grab; }
+.viewer.dragging .viewer-stage { cursor: grabbing; }
+.viewer.idle .viewer-stage { cursor: none; }
+.viewer-img { position: absolute; left: 50%; top: 50%; max-width: none; transform-origin: center; box-shadow: 0 30px 120px rgba(0, 0, 0, .9); }
+.viewer-img.animate { transition: transform .4s var(--ease); }
+.viewer-img.swap { animation: s9-fade .45s ease both; }
+.viewer-missing { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--faint); font-family: var(--serif); font-style: italic; font-size: 22px; }
+.viewer-ui { transition: opacity .45s ease; }
+.viewer.idle .viewer-ui { opacity: 0; pointer-events: none; }
+.viewer-top {
+  position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 6px; padding: 16px 20px 28px;
+  background: linear-gradient(rgba(5, 4, 4, .8), transparent);
+}
+.viewer-top .spacer { flex: 1; }
+.viewer-top .icon-btn { color: var(--light-grey); }
+.viewer-top .icon-btn:disabled { opacity: .3; cursor: default; border-color: transparent; }
+.viewer-count { font-size: 10px; letter-spacing: .26em; text-transform: uppercase; color: var(--warm-grey); }
+.viewer-zoom {
+  min-width: 56px; margin-right: 4px; border: 0; background: none; padding: 4px 0; text-align: right; cursor: pointer;
+  font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--ochre);
+}
+.viewer-zoom:disabled { color: var(--warm-grey); cursor: default; }
+.viewer-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; padding: 0;
+  border: 1px solid var(--line); background: rgba(10, 9, 8, .5); color: var(--cream); display: grid; place-items: center; cursor: pointer;
+  transition: opacity .45s ease, border-color .3s;
+}
+.viewer-nav svg { width: 20px; height: 20px; }
+.viewer-nav:hover { border-color: rgba(181, 98, 58, .7); }
+.viewer-nav.prev { left: 20px; }
+.viewer-nav.next { right: 20px; }
+.viewer-nav:disabled { opacity: 0 !important; pointer-events: none; }
+.viewer-caption {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: baseline; gap: 16px; padding: 48px 28px 22px;
+  background: linear-gradient(transparent, rgba(5, 4, 4, .82)); pointer-events: none;
+}
+.viewer-caption .plate { font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: var(--sienna-light); white-space: nowrap; }
+.viewer-caption .title { font-family: var(--serif); font-style: italic; font-size: 26px; line-height: 1.1; color: var(--white); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-caption .meta { margin-left: auto; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--warm-grey); white-space: nowrap; }
 .drawer .body { padding: 22px 26px 30px; display: flex; flex-direction: column; gap: 20px; }
 .drawer .plate-line { font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: var(--sienna-light); margin-bottom: -12px; }
 .drawer .title-input {
@@ -705,6 +757,10 @@ details.all-settings[open] summary::after { content: "Hide"; }
 /* ── Inside the Mac app: native window buttons sit in the top bar, which drags the window ── */
 .is-app.on-darwin .topbar, .is-app.on-darwin .studio-head { -webkit-app-region: drag; user-select: none; padding-left: 96px; }
 .is-app .topbar :is(input, button, label, a), .is-app .studio-head :is(button, .filmstrip) { -webkit-app-region: no-drag; }
+/* The viewer covers the top bar, so it mustn't drag the window; its controls clear the window buttons. */
+.is-app .viewer { -webkit-app-region: no-drag; }
+.is-app.on-darwin .viewer-top { padding-left: 96px; }
+.is-app.on-darwin .viewer:fullscreen .viewer-top { padding-left: 20px; }
 
 /* Thin, quiet scrollbars */
 * { scrollbar-width: thin; scrollbar-color: rgba(232, 226, 217, .14) transparent; }
