@@ -9,7 +9,7 @@ export const TILE = {
   cool: ['#2f5a74', '#466f88', '#8fa6b4'],
   paper: ['#e4d8bf', '#d6c9ae'],
 };
-const PAINT = ['#e07a2e', '#e07a2e', '#d9a23a', '#c2412b', '#e8e2d9', '#b4532a', '#7fa6bf'];
+export const PAINT = ['#e07a2e', '#e07a2e', '#d9a23a', '#c2412b', '#e8e2d9', '#b4532a', '#7fa6bf'];
 
 // Small seeded random generator, so a view always gets the same mosaic.
 export function seeded(seed) {
@@ -121,9 +121,11 @@ export function applyBrandTextures() {
 // ---------- Hero: a mosaic wall built from the works in view ----------
 
 let heroKey = '';
+let heroPool = []; // every work in view with a thumbnail, for the wall's slow changes
 
 export function renderHeroMosaic(el, artworks, viewKey) {
-  const works = artworks.filter((a) => a.thumb).slice(0, 7);
+  heroPool = artworks.filter((a) => a.thumb);
+  const works = heroPool.slice(0, 7);
   const key = `${viewKey}|${works.map((a) => a.id).join()}`;
   if (key === heroKey) return;
   heroKey = key;
@@ -142,19 +144,56 @@ export function renderHeroMosaic(el, artworks, viewKey) {
   el.innerHTML = tiles.map((t, i) => {
     const pos = `left:${t.x.toFixed(2)}%;top:${t.y.toFixed(2)}%;width:${t.w.toFixed(2)}%;height:${t.h.toFixed(2)}%;--i:${Math.round(rand() * 14)}`;
     const a = workAt.get(i);
-    if (a) return `<div class="m-tile art" style="${pos}"><img src="/files/thumbs/${a.thumb}" alt="" draggable="false"></div>`;
+    if (a) return `<div class="m-tile art" style="${pos}" data-id="${a.id}"><img src="/files/thumbs/${a.thumb}" alt="" draggable="false"></div>`;
     const roll = rand();
     const fill = roll < 0.48 ? pick(rand, TILE.black) : roll < 0.8 ? pick(rand, TILE.warm) : roll < 0.92 ? pick(rand, TILE.cool) : pick(rand, TILE.paper);
     return `<div class="m-tile" style="${pos};--fill:${fill}"></div>`;
   }).join('');
 }
 
+// Every few seconds one tile of the wall changes: a work gives way to another from the
+// view, or a colour tile takes a new colour. Quiet, and only while the wall is on screen.
+export function startHeroLife(el, { every = 5200, isVisible = () => true } = {}) {
+  let n = 0;
+  return setInterval(() => {
+    if (document.hidden || !isVisible() || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const rand = seeded(`life:${n++}:${Date.now()}`);
+    const arts = [...el.querySelectorAll('.m-tile.art')];
+    const shown = new Set(arts.map((t) => t.dataset.id));
+    const waiting = heroPool.filter((a) => !shown.has(a.id));
+    if (arts.length && waiting.length && rand() < 0.6) {
+      const tile = pick(rand, arts);
+      const a = pick(rand, waiting);
+      const img = new Image();
+      img.alt = '';
+      img.draggable = false;
+      img.className = 'incoming';
+      img.onload = () => {
+        tile.append(img);
+        tile.dataset.id = a.id;
+        setTimeout(() => {
+          for (const old of tile.querySelectorAll('img:not(:last-child)')) old.remove();
+          img.classList.remove('incoming');
+        }, 1900);
+      };
+      img.src = `/files/thumbs/${a.thumb}`;
+    } else {
+      const plain = [...el.querySelectorAll('.m-tile:not(.art)')];
+      if (!plain.length) return;
+      const roll = rand();
+      const fill = roll < 0.4 ? pick(rand, TILE.black) : roll < 0.8 ? pick(rand, TILE.warm) : roll < 0.93 ? pick(rand, TILE.cool) : pick(rand, TILE.paper);
+      pick(rand, plain).style.setProperty('--fill', fill);
+    }
+  }, every);
+}
+
 // ---------- Cards: each new work resolves out of its own colour blocks ----------
 
-const sampler = document.createElement('canvas');
+let sampler = null;
 
-function sampleColours(img, tiles) {
+export function sampleColours(img, tiles) {
   const S = 24;
+  sampler ||= document.createElement('canvas');
   sampler.width = S;
   sampler.height = S;
   const ctx = sampler.getContext('2d', { willReadFrequently: true });

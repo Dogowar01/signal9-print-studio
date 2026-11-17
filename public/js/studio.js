@@ -6,6 +6,7 @@ import { PAPERS, paperById, driverSettings } from './papers.js';
 import { analyzeImage, recommend, ANALYSIS_VERSION } from './analyze.js';
 import { computeLayout, renderPreview, renderForPrint, mm } from './render.js';
 import { printSource, recommendedScale } from './upscale.js';
+import { inking, feedSheet, splatterFrom, sharpenReveal } from './motion.js';
 
 const SLIDERS = [
   { key: 'brightness', label: 'Brightness', min: -0.2, max: 0.25, step: 0.01, hint: 'Prints look darker than a backlit screen.' },
@@ -291,7 +292,10 @@ async function upscaleItem(i) {
     item.img = null;
     item.upscaling = null;
     renderFilmstrip();
-    if (S.index === i) await selectItem(i);
+    if (S.index === i) {
+      await selectItem(i);
+      sharpenReveal($('#sheet'));
+    }
   } catch (err) {
     item.upscaling = null;
     if (S) renderPanel();
@@ -452,6 +456,7 @@ async function printItems(indexes) {
   if (S.printing) return;
   S.printing = true;
   renderPanel();
+  inking($('#sheet'), true);
   const status = () => $('#pStatus');
   let ok = 0;
   const results = [];
@@ -495,10 +500,13 @@ async function printItems(indexes) {
     }
     renderFilmstrip();
   }
+  inking($('#sheet'), false);
   if (!S) return;
   S.printing = false;
   renderPanel();
   if (ok) {
+    splatterFrom($('#pPrint'), { power: 1.6 });
+    feedSheet($('#sheet'));
     const simulated = results.some((r) => r.simulated);
     const msg = simulated
       ? `Simulated: ${ok} print${ok > 1 ? 's' : ''} saved as PDF in your library’s “simulated-prints” folder.`

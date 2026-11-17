@@ -1,6 +1,8 @@
 // Full-screen viewer: one work at a time filling the window, with zoom to actual pixels,
 // panning, and stepping through the works in view.
 
+import { fly, reducedMotion, EASE } from './motion.js';
+
 const PAD = 28; // breathing room around a fitted work, in CSS pixels
 const IDLE_MS = 2400; // controls fade after this long without the mouse moving
 
@@ -51,11 +53,13 @@ let current = null; // the open viewer, if any
 
 export const viewerOpen = () => Boolean(current);
 export const viewerArtwork = () => current?.art()?.id ?? null;
-export const closeViewer = () => current?.close();
+export const closeViewer = (opts) => current?.close(opts);
 
 // list: the works to step through, in order. Each needs width/height and display or thumb.
-export function openViewer(list, startId, { plate = () => '', onPrint = null, onClose = null } = {}) {
-  closeViewer();
+// origin(id) returns the element showing that work in the library, if any: the viewer grows
+// out of it on opening and shrinks back into it on closing.
+export function openViewer(list, startId, { plate = () => '', origin = null, onPrint = null, onClose = null } = {}) {
+  closeViewer({ animate: false });
   let index = Math.max(0, list.findIndex((a) => a.id === startId));
   let view = { s: 1, x: 0, y: 0 };
   let fit = 1;
@@ -120,8 +124,11 @@ export function openViewer(list, startId, { plate = () => '', onPrint = null, on
     apply(animate);
   }
 
-  function show(i) {
-    index = Math.min(list.length - 1, Math.max(0, i));
+  // dir: 1 when stepping forward, -1 back, 0 for the first showing.
+  function show(i, dir = 0) {
+    i = Math.min(list.length - 1, Math.max(0, i));
+    if (dir && i === index) return;
+    index = i;
     const a = art();
     const token = ++loadToken;
     size = { w: a.width || 1, h: a.height || 1 };
@@ -133,9 +140,10 @@ export function openViewer(list, startId, { plate = () => '', onPrint = null, on
     img.src = thumb || full;
     img.style.width = `${size.w}px`;
     img.style.height = `${size.h}px`;
-    img.classList.remove('swap');
-    void img.offsetWidth;
-    img.classList.add('swap');
+    // The next work slides in from the side it lies on.
+    if (dir && !reducedMotion()) {
+      img.animate([{ translate: `${dir * 70}px 0`, opacity: 0 }, { translate: '0 0', opacity: 1 }], { duration: 480, easing: EASE });
+    }
     if (full) {
       const hi = new Image();
       hi.onload = () => {
@@ -183,30 +191,42 @@ export function openViewer(list, startId, { plate = () => '', onPrint = null, on
     b.title = fs ? 'Exit full screen (F)' : 'Full screen (F)';
   };
 
-  function close() {
+  function close({ animate = true } = {}) {
     if (current !== api) return;
     current = null;
     clearTimeout(idleTimer);
     window.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
     document.removeEventListener('fullscreenchange', onFullscreen);
-    if (document.fullscreenElement === el) document.exitFullscreen?.()?.catch(() => {});
-    el.remove();
+    const wasFullscreen = document.fullscreenElement === el;
+    if (wasFullscreen) document.exitFullscreen?.()?.catch(() => {});
     returnFocus?.focus?.({ preventScroll: true });
-    onClose?.(art().id);
+    const id = art().id;
+    const from = img.getBoundingClientRect();
+    onClose?.(id);
+    // Shrink back into the work's place in the library, while the dark fades away.
+    const target = animate && !wasFullscreen && !isZoomed() && !img.hidden && !reducedMotion() ? origin?.(id) : null;
+    if (!target) return el.remove();
+    el.style.pointerEvents = 'none';
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, easing: 'ease-out', fill: 'forwards' })
+      .finished.catch(() => {}).then(() => el.remove());
+    img.style.visibility = 'hidden';
+    target.style.visibility = 'hidden';
+    fly(img.currentSrc || img.src, from, target.getBoundingClientRect(), { duration: 460 })
+      .then(() => { target.style.visibility = ''; });
   }
 
   function print() {
     const id = art().id;
-    close();
+    close({ animate: false });
     onPrint?.(id);
   }
 
   const act = {
-    close,
+    close: () => close(),
     print,
-    prev: () => show(index - 1),
-    next: () => show(index + 1),
+    prev: () => show(index - 1, -1),
+    next: () => show(index + 1, 1),
     in: () => zoomTo(view.s * 1.6),
     out: () => zoomTo(view.s / 1.6),
     fit: () => zoomTo(fit),
@@ -221,8 +241,8 @@ export function openViewer(list, startId, { plate = () => '', onPrint = null, on
     if (k === 'Escape' || k === ' ') close();
     else if (k === 'ArrowLeft' || k === 'PageUp') act.prev();
     else if (k === 'ArrowRight' || k === 'PageDown') act.next();
-    else if (k === 'Home') show(0);
-    else if (k === 'End') show(list.length - 1);
+    else if (k === 'Home') show(0, -1);
+    else if (k === 'End') show(list.length - 1, 1);
     else if (k === '+' || k === '=') act.in();
     else if (k === '-' || k === '_') act.out();
     else if (k === '0') act.fit();
@@ -317,5 +337,15 @@ export function openViewer(list, startId, { plate = () => '', onPrint = null, on
   el.focus({ preventScroll: true });
   show(index);
   wake();
+  // Grow out of the card (or details picture) the work was opened from.
+  const start = origin?.(art().id);
+  if (start && !img.hidden && !reducedMotion()) {
+    img.style.visibility = 'hidden';
+    start.style.visibility = 'hidden';
+    fly(img.src, start.getBoundingClientRect(), img.getBoundingClientRect(), { duration: 520 }).then(() => {
+      img.style.visibility = '';
+      start.style.visibility = '';
+    });
+  }
   return api;
 }

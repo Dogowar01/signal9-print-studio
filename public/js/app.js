@@ -4,7 +4,8 @@ import { api, $, $$, esc, toast, ask, loadImage, prefs, icons, stars, formatByte
 import { analyzeImage, describe, ANALYSIS_VERSION } from './analyze.js';
 import { openStudio } from './studio.js';
 import { showUpdate } from './update-ui.js';
-import { applyBrandTextures, renderHeroMosaic, revealCard } from './mosaic.js';
+import { applyBrandTextures, renderHeroMosaic, revealCard, startHeroLife } from './mosaic.js';
+import { measureCards, playCards, splatterFrom, galleryLight, sharpenReveal } from './motion.js';
 import { openDuplicates } from './duplicates.js';
 import { printPixels, sharpSize, needsUpscale, recommendedScale, defaultModel, MODEL_LABELS, runUpscale, followUpscale, isUpscaling } from './upscale.js';
 import { STYLE_VERSION, styleSignature, groupByStyle, subjectGroup, subjectWords, rankSimilar } from './similar.js';
@@ -45,6 +46,8 @@ async function init() {
   }
   $('#simBanner').hidden = !state.app.mock;
   render();
+  galleryLight($('#grid'));
+  startHeroLife($('#heroMosaic'), { isVisible: () => $('#studio').hidden && !viewerOpen() && $('#main').scrollTop < $('.hero').offsetHeight });
   backfill();
   watchRecognition();
   resumeUpscales();
@@ -211,9 +214,9 @@ function viewHeading() {
 
 // ---------- Rendering ----------
 
-function render() {
+function render(motion) {
   renderFilters();
-  renderGrid();
+  renderGrid(motion);
   renderSelection();
   if (state.drawerId) renderDrawer();
 }
@@ -260,7 +263,9 @@ function plateOf(a) {
   return plates.map.get(a.id) || '';
 }
 
-function renderGrid() {
+// motion: { removed } names works just removed, so they break into tiles instead of fading.
+function renderGrid(motion = {}) {
+  const before = measureCards($('#grid'));
   const list = visibleArtworks();
   const h = viewHeading();
   $('#viewEyebrow').textContent = h.eyebrow;
@@ -361,6 +366,7 @@ function renderGrid() {
   }
   for (const card of grid.querySelectorAll('.card.fresh')) revealCard(card);
   for (const a of list) if (a.thumb) state.seen.add(a.id);
+  playCards(grid, before, { removed: motion.removed });
 }
 
 function cardHtml(a, index) {
@@ -433,7 +439,7 @@ async function removeArtworks(ids) {
   }
   if (state.drawerId && !state.artworks.some((a) => a.id === state.drawerId)) closeDrawer();
   if (!state.selected.size) state.selecting = false;
-  render();
+  render({ removed: new Set(arts.map((a) => a.id)) });
   if (removed) toast(`Moved ${removed === 1 ? '1 work' : `${removed} works`} to the library trash folder.`);
 }
 
@@ -555,7 +561,10 @@ function renderDrawer() {
   $$('[data-view-full]', d).forEach((b) => (b.onclick = () => viewFullScreen(a.id)));
   $('#dTitle', d).onchange = (e) => patch({ title: e.target.value });
   $$('#dRating button', d).forEach((b) => (b.onclick = () => patch({ rating: Number(b.dataset.r) === a.rating ? 0 : Number(b.dataset.r) })));
-  $('#dFav', d).onclick = () => patch({ favorite: !a.favorite });
+  $('#dFav', d).onclick = (e) => {
+    if (!a.favorite) splatterFrom(e.currentTarget.querySelector('svg'), { power: 0.8 });
+    patch({ favorite: !a.favorite });
+  };
   $('#dPrint', d).onclick = () => startPrint([a.id]);
   $('#dNotes', d).onchange = (e) => patch({ notes: e.target.value });
   $('#dTagInput', d).onkeydown = (e) => {
@@ -722,6 +731,7 @@ async function startUpscale(a, opts) {
   try {
     const updated = await run;
     replaceArtwork(updated);
+    if (state.drawerId === updated.id) sharpenReveal($('#drawer .art img'));
     const s = sharpSize(updated.upscaled.width, updated.upscaled.height);
     toast(`“${updated.title}” upscaled ${opts.scale}×. ${sharpWords(s)}`, 'good', 6000);
   } catch (err) {
@@ -942,6 +952,7 @@ $('#grid').addEventListener('click', (e) => {
   const id = card.dataset.id;
   if (e.target.closest('[data-fav]')) {
     const a = state.artworks.find((x) => x.id === id);
+    if (!a.favorite) splatterFrom(e.target.closest('[data-fav]'), { power: 0.6 });
     return updateArtwork(id, { favorite: !a.favorite });
   }
   if (e.target.closest('[data-view-full]')) return viewFullScreen(id);
@@ -1129,6 +1140,19 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Where a work sits on screen, so full screen can grow out of it and shrink back:
+// its picture in the open details, or its card if that's in view.
+function viewerOrigin(id) {
+  if (state.drawerId === id && !$('#drawer').hidden) {
+    const img = $('#drawer .art img');
+    if (img) return img;
+  }
+  return $$(`#grid .card[data-id="${id}"] .frame`).find((f) => {
+    const r = f.getBoundingClientRect();
+    return r.bottom > 0 && r.top < innerHeight && r.width > 0;
+  }) || null;
+}
+
 // Full screen steps through the works in the order the library shows them.
 function viewFullScreen(id) {
   const byId = new Map(state.artworks.map((a) => [a.id, a]));
@@ -1138,6 +1162,7 @@ function viewFullScreen(id) {
   if (!list.length) return toast('That work has no preview to show yet.');
   openViewer(list, id, {
     plate: plateOf,
+    origin: viewerOrigin,
     onPrint: (x) => startPrint([x]),
     // Open details follow along to the work last viewed.
     onClose: (x) => {
@@ -1181,7 +1206,7 @@ if (window.signal9App) {
     if (viewerOpen()) {
       if (command === 'print') {
         const id = viewerArtwork();
-        closeViewer();
+        closeViewer({ animate: false });
         startPrint([id]);
       }
       if (command !== 'refresh') return;
