@@ -10,6 +10,7 @@ import { openDuplicates } from './duplicates.js';
 import { printPixels, sharpSize, needsUpscale, recommendedScale, defaultModel, MODEL_LABELS, runUpscale, followUpscale, isUpscaling } from './upscale.js';
 import { STYLE_VERSION, styleSignature, groupByStyle, subjectGroup, subjectWords, rankSimilar } from './similar.js';
 import { openViewer, viewerOpen, viewerArtwork, closeViewer } from './viewer.js';
+import { openHang, hangOpen } from './hang.js';
 
 applyBrandTextures();
 
@@ -47,7 +48,7 @@ async function init() {
   $('#simBanner').hidden = !state.app.mock;
   render();
   galleryLight($('#grid'));
-  startHeroLife($('#heroMosaic'), { isVisible: () => $('#studio').hidden && !viewerOpen() && $('#main').scrollTop < $('.hero').offsetHeight });
+  startHeroLife($('#heroMosaic'), { isVisible: () => $('#studio').hidden && !viewerOpen() && !hangOpen() && $('#main').scrollTop < $('.hero').offsetHeight });
   backfill();
   watchRecognition();
   resumeUpscales();
@@ -530,6 +531,7 @@ function renderDrawer() {
         <button class="btn ghost fav-toggle ${a.favorite ? 'on' : ''}" id="dFav" type="button">${icons.heart} ${a.favorite ? 'Favourite' : 'Add to favourites'}</button>
       </div>
       <button class="btn primary big" id="dPrint" type="button" ${a.display ? '' : 'disabled'}>${icons.printer} Print this artwork</button>
+      <button class="btn outline wide hang-btn" id="dHang" type="button" ${src ? '' : 'disabled'} title="Watch it being hung on a gallery wall">${icons.frame} See it on a wall</button>
       ${upscaleHtml(a)}
       ${traits.length ? `<div class="field"><span class="label">Image character</span><div class="badges">${traits.map((t) => `<span class="badge">${esc(t)}</span>`).join('')}</div></div>` : ''}
       ${subjectHtml(a)}
@@ -566,6 +568,7 @@ function renderDrawer() {
     patch({ favorite: !a.favorite });
   };
   $('#dPrint', d).onclick = () => startPrint([a.id]);
+  $('#dHang', d).onclick = () => openHang(a, { plate: plateOf(a) });
   $('#dNotes', d).onchange = (e) => patch({ notes: e.target.value });
   $('#dTagInput', d).onkeydown = (e) => {
     if ((e.key === 'Enter' || e.key === ',') && e.target.value.trim()) {
@@ -1202,6 +1205,8 @@ if (window.signal9App) {
   document.documentElement.classList.add('is-app', `on-${window.signal9App.platform}`);
   window.signal9App.onUpdate((info) => showUpdate(info, () => window.signal9App.installUpdate()));
   window.signal9App.onMenu(async (command) => {
+    // The wall scene is a window of its own: library commands wait until it's closed.
+    if (hangOpen() && command !== 'refresh') return;
     // While a work is full screen, ⌘P prints it and library commands wait.
     if (viewerOpen()) {
       if (command === 'print') {

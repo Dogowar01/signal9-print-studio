@@ -824,6 +824,54 @@ details.all-settings[open] summary::after { content: "Hide"; }
   box-shadow: 0 0 16px 2px rgba(224, 122, 46, .7);
 }
 
+/* ---------- On the wall: the three.js hanging scene ---------- */
+.hang {
+  position: fixed; inset: 0; z-index: 72; display: grid; place-items: center; padding: 32px;
+  background: rgba(5, 4, 4, .8); backdrop-filter: blur(6px); animation: s9-fade .35s ease both;
+}
+.hang-panel {
+  position: relative; width: min(1180px, 100%); display: flex; flex-direction: column; outline: none;
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow);
+  animation: hang-rise .6s var(--ease) both;
+}
+@keyframes hang-rise { from { opacity: 0; transform: translateY(18px) scale(.985); } }
+.hang-head { position: relative; display: flex; align-items: center; gap: 18px; padding: 14px 16px 14px 22px; }
+.hang-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--line-soft); }
+.hang-head .titles { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hang-head .eyebrow { font-size: 9px; letter-spacing: .34em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hang-head h2 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 28px; line-height: 1; color: var(--white); }
+.hang-head h2 em { color: var(--warm-grey); }
+.hang-head .spacer { flex: 1; }
+.hang-head .link-btn { display: inline-flex; align-items: center; gap: 8px; }
+.hang-rooms { border-bottom: 0; gap: 18px; margin-right: 6px; }
+.hang-rooms button { white-space: nowrap; }
+.hang-head .link-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.hang-stage { position: relative; aspect-ratio: 16 / 9; max-height: calc(100vh - 150px); background: #050404; overflow: hidden; }
+.hang-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hang-note {
+  position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 24px; text-align: center;
+  color: var(--warm-grey); font-family: var(--serif); font-style: italic; font-size: 21px; pointer-events: none; transition: opacity .8s ease;
+}
+.hang-note.gone { opacity: 0; }
+.hang-caption {
+  position: absolute; left: 24px; right: 24px; bottom: 20px; display: flex; align-items: baseline; gap: 16px;
+  opacity: 0; transform: translateY(8px); transition: opacity 1.4s ease, transform 1.4s var(--ease);
+  pointer-events: none; text-shadow: 0 2px 20px rgba(0, 0, 0, .9);
+}
+.hang-caption.on { opacity: 1; transform: none; }
+.hang-caption .plate { font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: var(--sienna-light); white-space: nowrap; }
+.hang-caption .title { min-width: 0; font-family: var(--serif); font-style: italic; font-size: 26px; line-height: 1.1; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer .hang-btn { margin-top: -6px; }
+.is-app .hang { -webkit-app-region: no-drag; }
+@media (max-width: 700px) {
+  .hang { padding: 12px 16px; }
+  .hang-head h2 { font-size: 22px; }
+  .hang-head .link-btn span { display: none; }
+  .hang-head { flex-wrap: wrap; row-gap: 6px; }
+  .hang-rooms { order: 5; width: 100%; }
+  .hang-caption .title { font-size: 20px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .s9-grain { animation: none; }
