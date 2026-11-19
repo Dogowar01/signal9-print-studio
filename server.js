@@ -10,6 +10,7 @@ import { execFileSync, execFile } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 import { Library } from './server/library.js';
 import { createPrinting, httpError } from './server/printing.js';
 import { buildImagePdf } from './server/pdf.js';
@@ -20,6 +21,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const VERSION = JSON.parse(await readFile(path.join(here, 'package.json'), 'utf8')).version;
 export const DEFAULT_LIBRARY = path.join(os.homedir(), 'Pictures', 'Signal9 Library');
 const MAX_UPLOAD = 1024 * 1024 * 1024; // 1 GB
+// three.js, for the "on the wall" scene: served from the installed package, never a CDN.
+const THREE_FILE = path.join(path.dirname(createRequire(import.meta.url).resolve('three')), 'three.module.min.js');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -208,6 +211,7 @@ export async function startServer({
         if (!file) return send(res, 400, { error: 'Bad file name' });
         return sendFile(req, res, file, 'private, max-age=31536000, immutable');
       }
+      if (pathname === '/vendor/three.module.js') return sendFile(req, res, THREE_FILE, 'public, max-age=86400');
       const publicDir = path.join(here, 'public');
       const file = path.normalize(path.join(publicDir, pathname === '/' ? 'index.html' : pathname));
       if (!file.startsWith(publicDir)) return send(res, 403, { error: 'Forbidden' });

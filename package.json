@@ -23,5 +23,8 @@
   "devDependencies": {
     "@electron/packager": "^20.3.0",
     "electron": "^45.2.2"
+  },
+  "dependencies": {
+    "three": "0.170.0"
   }
 }

@@ -127,6 +127,7 @@ export const icons = {
   pencil: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>',
   sparkle: '<svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
+  frame: '<svg viewBox="0 0 24 24"><path d="M12 3 7.5 8M12 3l4.5 5"/><rect x="4" y="8" width="16" height="12" rx="1"/><path d="m7 17 3.5-3.5 2.5 2.5 2-2 2 2"/></svg>',
   dashed: '<svg viewBox="0 0 24 24"><path d="M5 12h14" stroke-dasharray="2 3"/></svg>',
 };
 
